@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { mathSubject, Paper, Question } from "@/data/papers";
+import { AdminQuestion } from "@/types/admin";
 import { TopicSidebar } from "./TopicSidebar";
 import { QuestionCard } from "./QuestionCard";
 
@@ -26,6 +28,14 @@ export function PapersPage() {
   const [animationEnabled, setAnimationEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
+  const [adminQuestions, setAdminQuestions] = useState<AdminQuestion[]>([]);
+
+  useEffect(() => {
+    fetch("/api/questions")
+      .then((r) => r.json())
+      .then(setAdminQuestions)
+      .catch(() => {});
+  }, []);
 
   const toggleTopic = useCallback((id: string) => {
     setSelectedTopicIds((prev) => {
@@ -52,7 +62,6 @@ export function PapersPage() {
     const results: FilteredQuestion[] = [];
 
     for (const paper of papers) {
-      // If no topics selected, show all
       const topicMatch =
         selectedTopicIds.length === 0 ||
         paper.topicIds.some((tid) => selectedTopicIds.includes(tid));
@@ -68,8 +77,40 @@ export function PapersPage() {
       }
     }
 
-    return results;
-  }, [selectedTopicIds, sortOrder, seasonFilter]);
+    // Merge admin-added questions
+    const adminFiltered = adminQuestions
+      .filter((q) => seasonFilter === "all" || q.season === seasonFilter)
+      .filter((q) => selectedTopicIds.length === 0 || selectedTopicIds.includes(q.topicId))
+      .map((q) => {
+        const fakePaper: Paper = {
+          id: `admin-${q.id}`,
+          year: q.year,
+          season: q.season,
+          paperNumber: q.paperNumber,
+          variant: q.variant,
+          topicIds: [q.topicId],
+          questions: [],
+        };
+        const question: Question = {
+          id: q.id,
+          number: q.number,
+          marks: q.marks,
+          text: q.text,
+          imageUrl: q.imageUrl,
+          markScheme: q.markScheme,
+        };
+        return { question, paper: fakePaper, paperLabel: getPaperLabel(fakePaper) };
+      });
+
+    const combined = [...results, ...adminFiltered];
+    combined.sort((a, b) =>
+      sortOrder === "newest"
+        ? b.paper.year - a.paper.year
+        : a.paper.year - b.paper.year
+    );
+
+    return combined;
+  }, [selectedTopicIds, sortOrder, seasonFilter, adminQuestions]);
 
   const clearFilters = () => {
     setSelectedTopicIds([]);
@@ -109,6 +150,15 @@ export function PapersPage() {
 
           {/* Controls */}
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add
+            </Link>
             {/* Animation toggle */}
             <button
               onClick={() => {

@@ -65,15 +65,27 @@ export function QuestionCard({
               </span>
             </div>
 
-            {/* Question text */}
-            <div className="text-zinc-800 text-[15px] leading-relaxed font-medium mb-4">
-              <TypewriterText
-                text={question.text}
-                speed={12}
-                startDelay={0}
-                enabled={animationEnabled}
+            {/* Question image */}
+            {question.imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={question.imageUrl}
+                alt={`Question ${question.number}`}
+                className="w-full rounded-xl mb-4 border border-zinc-100 bg-zinc-50 object-contain max-h-72"
               />
-            </div>
+            )}
+
+            {/* Question text */}
+            {question.text && (
+              <div className="text-zinc-800 text-[15px] leading-relaxed font-medium mb-4">
+                <TypewriterText
+                  text={question.text}
+                  speed={12}
+                  startDelay={0}
+                  enabled={animationEnabled}
+                />
+              </div>
+            )}
 
             {/* Subparts */}
             {question.subparts && question.subparts.length > 0 && (
