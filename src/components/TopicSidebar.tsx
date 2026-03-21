@@ -52,7 +52,7 @@ export function TopicSidebar({
           <div key={topic.id}>
             {/* Parent topic */}
             <div
-              className={`group flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors duration-100 ${
+              className={`group flex items-center gap-2 px-4 py-3 cursor-pointer transition-colors duration-100 ${
                 parentSelected(topic)
                   ? "bg-indigo-50"
                   : "hover:bg-zinc-50"
@@ -100,7 +100,7 @@ export function TopicSidebar({
                   {topic.subtopics.map((sub) => (
                     <label
                       key={sub.id}
-                      className={`flex items-center gap-2.5 px-4 py-1.5 pl-8 cursor-pointer transition-colors duration-100 ${
+                      className={`flex items-center gap-2.5 px-4 py-2.5 pl-8 cursor-pointer transition-colors duration-100 ${
                         isSelected(sub.id)
                           ? "bg-indigo-50 text-indigo-700"
                           : "hover:bg-zinc-50 text-zinc-600"

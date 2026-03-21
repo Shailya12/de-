@@ -24,7 +24,7 @@ export function PapersPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>("all");
   const [animationEnabled, setAnimationEnabled] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
 
   const toggleTopic = useCallback((id: string) => {
@@ -87,7 +87,7 @@ export function PapersPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen((v) => !v)}
-              className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors text-zinc-500"
+              className="p-2 rounded-lg hover:bg-zinc-100 transition-colors text-zinc-500"
               title="Toggle sidebar"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -115,7 +115,7 @@ export function PapersPage() {
                 setAnimationEnabled((v) => !v);
                 setAnimationKey((k) => k + 1);
               }}
-              className={`hidden sm:flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all duration-150 ${
+              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-all duration-150 ${
                 animationEnabled
                   ? "bg-indigo-50 text-indigo-600 border-indigo-200"
                   : "bg-zinc-50 text-zinc-500 border-zinc-200"
@@ -132,7 +132,7 @@ export function PapersPage() {
       </header>
 
       <div className="max-w-screen-xl mx-auto flex">
-        {/* Sidebar */}
+        {/* Desktop sidebar (inline, pushes content) */}
         <AnimatePresence initial={false}>
           {sidebarOpen && (
             <motion.aside
@@ -140,7 +140,7 @@ export function PapersPage() {
               animate={{ width: 260, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.25, ease: "easeInOut" }}
-              className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-hidden border-r border-zinc-200 bg-white shrink-0"
+              className="hidden lg:block sticky top-14 h-[calc(100vh-3.5rem)] overflow-hidden border-r border-zinc-200 bg-white shrink-0"
             >
               <TopicSidebar
                 topics={mathSubject.topics}
@@ -152,12 +152,42 @@ export function PapersPage() {
           )}
         </AnimatePresence>
 
+        {/* Mobile sidebar (overlay drawer) */}
+        <AnimatePresence initial={false}>
+          {sidebarOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="lg:hidden fixed inset-0 z-20 bg-black/30"
+                onClick={() => setSidebarOpen(false)}
+              />
+              <motion.aside
+                initial={{ x: -280 }}
+                animate={{ x: 0 }}
+                exit={{ x: -280 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="lg:hidden fixed top-14 left-0 bottom-0 z-30 w-[280px] overflow-hidden border-r border-zinc-200 bg-white"
+              >
+                <TopicSidebar
+                  topics={mathSubject.topics}
+                  selectedTopicIds={selectedTopicIds}
+                  onToggleTopic={toggleTopic}
+                  totalQuestions={filteredQuestions.length}
+                />
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+
         {/* Main content */}
         <main className="flex-1 min-w-0 px-4 sm:px-6 py-6">
           {/* Filters bar */}
           <div className="flex flex-wrap items-center gap-2 mb-6">
             {/* Season pills */}
-            <div className="flex items-center gap-1 p-1 bg-white border border-zinc-200 rounded-xl">
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-white border border-zinc-200 rounded-xl">
               {seasons.map((s) => (
                 <button
                   key={s}
@@ -165,13 +195,13 @@ export function PapersPage() {
                     setSeasonFilter(s);
                     setAnimationKey((k) => k + 1);
                   }}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-150 ${
+                  className={`text-xs font-medium px-3 py-2 rounded-lg transition-all duration-150 ${
                     seasonFilter === s
                       ? "bg-indigo-600 text-white shadow-sm"
                       : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50"
                   }`}
                 >
-                  {s === "all" ? "All seasons" : s}
+                  {s === "all" ? "All" : s}
                 </button>
               ))}
             </div>
@@ -185,13 +215,13 @@ export function PapersPage() {
                     setSortOrder(o);
                     setAnimationKey((k) => k + 1);
                   }}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-150 ${
+                  className={`text-xs font-medium px-3 py-2 rounded-lg transition-all duration-150 ${
                     sortOrder === o
                       ? "bg-zinc-800 text-white shadow-sm"
                       : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50"
                   }`}
                 >
-                  {o === "newest" ? "Newest first" : "Oldest first"}
+                  {o === "newest" ? "Newest" : "Oldest"}
                 </button>
               ))}
             </div>
