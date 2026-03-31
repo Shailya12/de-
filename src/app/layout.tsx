@@ -1,14 +1,25 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
+
+// The entire app requires authentication and Firebase — skip static prerendering
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Topical Past Papers · Cambridge IGCSE Mathematics",
-  description: "Practice Cambridge IGCSE Mathematics past paper questions filtered by topic",
+  title: "Gate Check-in",
+  description: "Building visitor check-in and registration system",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Gate Check-in",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#111827",
 };
 
 export default function RootLayout({
@@ -18,7 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-gray-950">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
