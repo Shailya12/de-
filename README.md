@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gate Check-in
 
-## Getting Started
+Building visitor check-in and registration system.
 
-First, run the development server:
+## What it does
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Security guard app** (mobile PWA, installable on Android): register visitors entering the building — photo with timestamp, name, phone, purpose, host, vehicle number
+- **Admin panel** (web, works on iPhone): real-time visitor logs, search/filter, visitor details, check-out, flag visitors, blocklist management, CSV export
+
+## Setup
+
+### 1. Firebase
+
+1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable **Authentication → Sign-in method → Email/Password**
+3. Create a **Firestore** database (production mode)
+4. Create a **Storage** bucket (production mode)
+5. Go to **Project Settings → Your apps → Add Web app** and copy the config
+
+### 2. Environment variables
+
+Copy `.env.local.example` to `.env.local` and fill in your Firebase config keys and the two admin email addresses:
+
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+NEXT_PUBLIC_ADMIN_EMAILS=admin1@yourdomain.com,admin2@yourdomain.com
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Firebase security rules
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Paste `firestore.rules` into **Firestore → Rules** and `storage.rules` into **Storage → Rules** in the Firebase console.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Create user accounts
 
-## Learn More
+In **Firebase Auth → Users**, add accounts for:
+- The 2 admin email addresses (matching `NEXT_PUBLIC_ADMIN_EMAILS`)
+- Security guard accounts (any other email)
 
-To learn more about Next.js, take a look at the following resources:
+### 5. Run
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
+Deploy to [Vercel](https://vercel.com) and add all `NEXT_PUBLIC_*` environment variables in the Vercel project settings.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Installing on the security guard's Android phone
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Open the deployed URL in **Chrome**
+2. Tap the menu (⋮) → **Add to Home Screen**
+3. The app installs and runs fullscreen like a native app
+
+## Routes
+
+| Route | Access | Purpose |
+|---|---|---|
+| `/login` | Everyone | Sign in |
+| `/checkin` | Security guards | Register visitors |
+| `/admin` | Admins only | View logs, manage blocklist |
