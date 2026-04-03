@@ -52,6 +52,12 @@ export async function flagVisitor(visitorId: string, flagged: boolean): Promise<
   await updateDoc(doc(db, 'visitors', visitorId), { flagged })
 }
 
+export async function updateVisitorPhoto(visitorId: string, photoUrl: string, idPhotoUrl?: string): Promise<void> {
+  const updates: Record<string, string> = { photoUrl }
+  if (idPhotoUrl) updates.idPhotoUrl = idPhotoUrl
+  await updateDoc(doc(db, 'visitors', visitorId), updates)
+}
+
 function toVisitor(id: string, data: Record<string, unknown>): Visitor {
   return {
     id,
