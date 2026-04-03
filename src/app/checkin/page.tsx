@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import PhotoCapture from '@/components/PhotoCapture'
-import { subscribeToBlocklist, checkOutVisitor, getRecentVisitors, addVisitor, updateVisitorPhoto } from '@/lib/firestore'
+import { subscribeToBlocklist, checkOutVisitor, getRecentVisitors, addVisitor, newVisitorId } from '@/lib/firestore'
 import { uploadVisitorPhoto } from '@/lib/storage'
 import type { BlocklistEntry, Visitor, VisitPurpose } from '@/types'
 
@@ -83,21 +83,25 @@ export default function CheckinPage() {
     setError('')
     setSubmitting(true)
     try {
-      const visitorId = await addVisitor({
+      // Generate ID first, upload photo before writing Firestore record
+      // This prevents orphaned records if the upload fails
+      const visitorId = newVisitorId()
+      const photoUrl = await uploadVisitorPhoto(visitorId, photoBlob, 'checkin')
+      let idPhotoUrl: string | undefined
+      if (idPhotoBlob) idPhotoUrl = await uploadVisitorPhoto(visitorId, idPhotoBlob, 'id')
+
+      await addVisitor({
         name: name.trim(),
         phone: phone.trim(),
-        photoUrl: '__pending__',
+        photoUrl,
+        idPhotoUrl,
         purpose,
         hostName: hostName.trim() || undefined,
         apartmentFloor: apartmentFloor.trim() || undefined,
         vehicleNumber: vehicleNumber.trim() || undefined,
         checkedInBy: user!.uid,
         checkedInByName: user!.displayName ?? user!.email ?? 'Guard',
-      })
-      const photoUrl = await uploadVisitorPhoto(visitorId, photoBlob, 'checkin')
-      let idPhotoUrl: string | undefined
-      if (idPhotoBlob) idPhotoUrl = await uploadVisitorPhoto(visitorId, idPhotoBlob, 'id')
-      await updateVisitorPhoto(visitorId, photoUrl, idPhotoUrl)
+      }, visitorId)
 
       setSuccessName(name.trim())
       setPhotoBlob(null); setPhotoPreview(null)

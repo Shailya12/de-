@@ -6,8 +6,8 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   Camera, Shield, Zap, BarChart2, AlertTriangle, Download,
-  CheckCircle, ChevronRight, Lock, Smartphone, Globe,
-  Users, Clock, FileText, Star, ArrowRight, Building2
+  CheckCircle, Lock, Smartphone,
+  Clock, FileText, ArrowRight, Building2
 } from 'lucide-react'
 
 export default function LandingPage() {
@@ -28,7 +28,6 @@ export default function LandingPage() {
       <Features />
       <HowItWorks />
       <Stats />
-      <Pricing />
       <CTA />
       <Footer />
     </div>
@@ -50,7 +49,6 @@ function Navbar() {
         <div className="hidden md:flex items-center gap-6 text-sm" style={{ color: 'var(--text-2)' }}>
           <a href="#features" className="hover:text-white transition-colors">Features</a>
           <a href="#how" className="hover:text-white transition-colors">How it works</a>
-          <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
         </div>
 
         <div className="flex items-center gap-2">
@@ -301,81 +299,6 @@ function Stats() {
             <div key={s.label}>
               <div className="text-3xl font-black mb-1 gradient-text">{s.val}</div>
               <div className="text-xs" style={{ color: 'var(--text-3)' }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/* ── Pricing ─────────────────────────────────────────────────────────────────── */
-const PLANS = [
-  {
-    name: 'Starter', price: 'Free', period: 'forever',
-    desc: 'Perfect for trying Vigil.',
-    highlight: false,
-    features: ['Up to 200 visitors/month', '1 building', '2 admin accounts', 'Photo capture with timestamp', 'CSV export', '30-day data retention'],
-    cta: 'Get started free',
-  },
-  {
-    name: 'Pro', price: '₹999', period: '/month',
-    desc: 'For buildings with daily traffic.',
-    highlight: true,
-    features: ['Unlimited visitors', 'Unlimited buildings', '2 admin accounts', 'Everything in Starter', 'Blocklist management', '1-year data retention', 'Priority support'],
-    cta: 'Start Pro trial',
-  },
-  {
-    name: 'Enterprise', price: 'Custom', period: '',
-    desc: 'For large complexes & campuses.',
-    highlight: false,
-    features: ['Everything in Pro', 'Multiple guard accounts', 'Custom admin emails', 'Dedicated onboarding', 'SLA guarantee', 'Unlimited data retention'],
-    cta: 'Contact sales',
-  },
-]
-
-function Pricing() {
-  return (
-    <section id="pricing" className="py-24 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-14">
-          <div className="badge badge-amber inline-flex mb-3">Pricing</div>
-          <h2 className="text-3xl sm:text-4xl font-bold mb-3">Simple, transparent pricing</h2>
-          <p className="text-base max-w-md mx-auto" style={{ color: 'var(--text-2)' }}>
-            Start free. Upgrade when you're ready.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
-          {PLANS.map((plan) => (
-            <div key={plan.name} className={`card relative flex flex-col ${plan.highlight ? 'gradient-border' : ''}`}
-              style={plan.highlight ? { background: 'var(--card)', borderColor: 'transparent' } : {}}>
-              {plan.highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 badge badge-blue px-3 py-1 text-xs">
-                  Most Popular
-                </div>
-              )}
-              <div className="mb-5">
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-3xl font-black">{plan.price}</span>
-                  <span className="text-sm" style={{ color: 'var(--text-3)' }}>{plan.period}</span>
-                </div>
-                <div className="font-bold text-base">{plan.name}</div>
-                <div className="text-sm mt-0.5" style={{ color: 'var(--text-2)' }}>{plan.desc}</div>
-              </div>
-              <ul className="space-y-2 flex-1 mb-6">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-2)' }}>
-                    <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#22C55E' }} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/login"
-                className={plan.highlight ? 'btn-primary justify-center' : 'btn-secondary justify-center'}
-                style={{ textDecoration: 'none' }}>
-                {plan.cta} <ChevronRight className="w-3.5 h-3.5" />
-              </Link>
             </div>
           ))}
         </div>

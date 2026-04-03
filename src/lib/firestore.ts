@@ -2,6 +2,7 @@
 import {
   collection,
   addDoc,
+  setDoc,
   updateDoc,
   doc,
   getDocs,
@@ -31,13 +32,18 @@ export interface NewVisitorData {
   checkedInByName: string
 }
 
-export async function addVisitor(data: NewVisitorData): Promise<string> {
-  const ref = await addDoc(collection(db, 'visitors'), {
-    ...data,
-    checkInTime: Timestamp.now(),
-    status: 'checked-in',
-    flagged: false,
-  })
+/** Generate a new visitor document ID without writing anything yet */
+export function newVisitorId(): string {
+  return doc(collection(db, 'visitors')).id
+}
+
+export async function addVisitor(data: NewVisitorData, id?: string): Promise<string> {
+  const payload = { ...data, checkInTime: Timestamp.now(), status: 'checked-in', flagged: false }
+  if (id) {
+    await setDoc(doc(db, 'visitors', id), payload)
+    return id
+  }
+  const ref = await addDoc(collection(db, 'visitors'), payload)
   return ref.id
 }
 
