@@ -27,8 +27,19 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       await signIn(email, password)
-    } catch {
-      setError('Invalid email or password.')
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? ''
+      if (code === 'auth/invalid-api-key' || code === 'auth/api-key-not-valid') {
+        setError('App configuration error. Please contact support.')
+      } else if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        setError('Invalid email or password.')
+      } else if (code === 'auth/too-many-requests') {
+        setError('Too many attempts. Please wait a few minutes and try again.')
+      } else if (code === 'auth/network-request-failed') {
+        setError('Network error. Check your internet connection.')
+      } else {
+        setError(`Sign-in failed (${code || 'unknown error'}). Please try again.`)
+      }
     } finally {
       setSubmitting(false)
     }
