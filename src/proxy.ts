@@ -1,11 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Middleware runs on the Edge — Firebase SDK can't run here.
-// We use a simple cookie set by the client after successful login.
-// The cookie is named `checkin_auth` and holds the user's role.
-// The AuthContext sets/clears this cookie on login/logout.
-
-const PUBLIC_PATHS = ['/login']
+// Public paths — accessible without auth cookie
+const PUBLIC_PATHS = ['/', '/login']
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -18,7 +14,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  const role = authCookie.value // 'admin' | 'security'
+  const role = authCookie.value
 
   if (pathname.startsWith('/admin') && role !== 'admin') {
     return NextResponse.redirect(new URL('/checkin', request.url))
