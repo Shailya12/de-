@@ -221,7 +221,8 @@ export default function AdminPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search visitors…"
-              className="input-field pl-9 py-2 text-sm w-full"
+              className="input-field text-sm w-full"
+              style={{ paddingLeft: '2.25rem', paddingTop: '0.5rem', paddingBottom: '0.5rem' }}
             />
           </div>
 
@@ -280,9 +281,19 @@ export default function AdminPage() {
                   active={purposeFilter === p} onClick={() => setPurposeFilter(p)} />
               ))}
             </div>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-              {filtered.length} record{filtered.length !== 1 ? 's' : ''}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                {filtered.length} record{filtered.length !== 1 ? 's' : ''}
+              </p>
+              {(search || statusFilter !== 'all' || dateFilter !== 'today' || purposeFilter !== 'all') && (
+                <button
+                  onClick={() => { setSearch(''); setStatusFilter('all'); setDateFilter('today'); setPurposeFilter('all') }}
+                  className="text-xs px-2.5 py-1 rounded-lg transition-colors"
+                  style={{ color: '#F87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  Clear filters
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Visitor table */}
