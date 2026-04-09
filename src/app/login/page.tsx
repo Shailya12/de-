@@ -106,9 +106,9 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setShowForgotPassword(true); setError(""); }}
-              className="w-full text-xs text-zinc-500 hover:text-indigo-600 font-medium transition-colors"
+              className="w-full text-xs text-indigo-600 hover:text-indigo-800 font-bold transition-colors py-2 border-t border-zinc-100"
             >
-              Forgot Password?
+              Forgot Password? Reset here
             </button>
           </form>
         ) : (

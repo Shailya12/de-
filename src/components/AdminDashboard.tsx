@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { collection, query, orderBy, limit, startAfter, getDocs, updateDoc, doc, Timestamp, DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
+import { useState, useEffect, useCallback } from "react";
+import { collection, query, orderBy, limit, startAfter, getDocs, onSnapshot, updateDoc, doc, Timestamp, DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Visitor } from "@/types/visitor";
 import VisitorTable from "./VisitorTable";
@@ -15,8 +15,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-
-  const allVisitors = useMemo(() => visitors, [visitors]);
 
   const fetchVisitors = useCallback(async (reset = false) => {
     if (loading) return;
@@ -48,7 +46,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const q = query(collection(db, "visitors"), orderBy("checkInTime", "desc"), limit(500));
-    const unsubscribe = q.onSnapshot((snap) => {
+    const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Visitor));
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
@@ -59,7 +57,7 @@ export default function AdminDashboard() {
         today: todayCount,
         total: docs.length
       });
-    }, () => {});
+    });
 
     return () => unsubscribe();
   }, []);
