@@ -1,36 +1,74 @@
-import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot, updateDoc, doc, Timestamp } from "firebase/firestore";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { collection, query, orderBy, limit, startAfter, getDocs, updateDoc, doc, Timestamp, DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Visitor } from "@/types/visitor";
 import VisitorTable from "./VisitorTable";
 import VisitorDetailModal from "./VisitorDetailModal";
 import { exportToCSV } from "@/lib/export";
 
+const PAGE_SIZE = 25;
+
 export default function AdminDashboard() {
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [stats, setStats] = useState({ inside: 0, today: 0, total: 0 });
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+
+  const allVisitors = useMemo(() => visitors, [visitors]);
+
+  const fetchVisitors = useCallback(async (reset = false) => {
+    if (loading) return;
+    setLoading(true);
+    
+    try {
+      const q = reset 
+        ? query(collection(db, "visitors"), orderBy("checkInTime", "desc"), limit(PAGE_SIZE))
+        : lastDoc 
+          ? query(collection(db, "visitors"), orderBy("checkInTime", "desc"), startAfter(lastDoc), limit(PAGE_SIZE))
+          : query(collection(db, "visitors"), orderBy("checkInTime", "desc"), limit(PAGE_SIZE));
+
+      const snap = await getDocs(q);
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Visitor));
+      
+      setVisitors(prev => reset ? docs : [...prev, ...docs]);
+      setLastDoc(snap.docs[snap.docs.length - 1] || null);
+      setHasMore(snap.docs.length === PAGE_SIZE);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, lastDoc]);
 
   useEffect(() => {
-    const q = query(collection(db, "visitors"), orderBy("checkInTime", "desc"));
-    const unsub = onSnapshot(q, (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Visitor));
-      setVisitors(docs);
+    fetchVisitors(true);
+  }, []);
 
+  useEffect(() => {
+    const q = query(collection(db, "visitors"), orderBy("checkInTime", "desc"), limit(500));
+    const unsubscribe = q.onSnapshot((snap) => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Visitor));
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todayCount = docs.filter(v => v.checkInTime.toMillis() >= todayStart.getTime()).length;
       const insideCount = docs.filter(v => v.status === "checked-in").length;
-
       setStats({
         inside: insideCount,
         today: todayCount,
         total: docs.length
       });
-    });
+    }, () => {});
 
-    return () => unsub();
+    return () => unsubscribe();
   }, []);
+
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      fetchVisitors(false);
+    }
+  };
 
   const handleCheckout = async (id: string) => {
     try {
@@ -97,6 +135,18 @@ export default function AdminDashboard() {
         onViewDetails={(v) => setSelectedVisitor(v)} 
         onCheckout={handleCheckout} 
       />
+
+      {hasMore && (
+        <div className="flex justify-center pt-4">
+          <button
+            onClick={loadMore}
+            disabled={loading}
+            className="px-8 py-3 bg-white border border-zinc-200 text-zinc-600 rounded-xl text-sm font-bold hover:border-indigo-300 hover:text-indigo-600 transition-all disabled:opacity-50"
+          >
+            {loading ? "Loading..." : "Load More"}
+          </button>
+        </div>
+      )}
 
       {selectedVisitor && (
         <VisitorDetailModal 

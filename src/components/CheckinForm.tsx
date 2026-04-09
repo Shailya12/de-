@@ -8,6 +8,30 @@ import { Visitor } from "@/types/visitor";
 
 const PURPOSES = ['Delivery', 'Guest', 'Meeting', 'Maintenance', 'Other'] as const;
 
+const PHONE_REGEX = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/;
+const NAME_MIN_LENGTH = 2;
+const NAME_MAX_LENGTH = 100;
+
+function validatePhone(phone: string): string | null {
+  if (!phone.trim()) return "Phone number is required";
+  const cleaned = phone.replace(/[\s\-\(\)\.]/g, "");
+  if (cleaned.length < 10 || cleaned.length > 15) return "Phone must be 10-15 digits";
+  if (!/^\+?[0-9]+$/.test(cleaned)) return "Invalid phone format";
+  return null;
+}
+
+function validateName(name: string): string | null {
+  if (!name.trim()) return "Name is required";
+  if (name.trim().length < NAME_MIN_LENGTH) return `Name must be at least ${NAME_MIN_LENGTH} characters`;
+  if (name.trim().length > NAME_MAX_LENGTH) return `Name must be less than ${NAME_MAX_LENGTH} characters`;
+  if (!/^[a-zA-Z][a-zA-Z\s\.\-']+$/.test(name.trim())) return "Name can only contain letters, spaces, dots, and hyphens";
+  return null;
+}
+
+function sanitizeInput(input: string): string {
+  return input.trim().slice(0, 500);
+}
+
 interface KnownVisitor {
   name: string;
   phone: string;
@@ -106,6 +130,18 @@ export default function CheckinForm({ onComplete, prefill }: {
       return;
     }
 
+    const phoneError = validatePhone(form.phone);
+    if (phoneError) {
+      setSubmitError(phoneError);
+      return;
+    }
+
+    const nameError = validateName(form.name);
+    if (nameError) {
+      setSubmitError(nameError);
+      return;
+    }
+
     const user = auth.currentUser;
     if (!user) {
       setSubmitError("You are not logged in. Please sign in again.");
@@ -115,15 +151,15 @@ export default function CheckinForm({ onComplete, prefill }: {
     setSubmitting(true);
     try {
       const visitorData = {
-        name: form.name,
-        phone: form.phone,
+        name: sanitizeInput(form.name),
+        phone: sanitizeInput(form.phone.replace(/[\s\-\(\)\.]/g, "")),
         photoUrl: photos.visitor,
         idPhotoUrl: photos.id || "",
         purpose: form.purpose,
-        hostName: form.hostName,
-        apartmentFloor: form.apartmentFloor,
-        vehicleNumber: form.vehicleNumber,
-        notes: form.notes,
+        hostName: sanitizeInput(form.hostName),
+        apartmentFloor: sanitizeInput(form.apartmentFloor),
+        vehicleNumber: sanitizeInput(form.vehicleNumber).toUpperCase(),
+        notes: sanitizeInput(form.notes),
         checkInTime: Timestamp.now(),
         status: "checked-in",
         checkedInBy: user.uid,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import AdminDashboard from "@/components/AdminDashboard";
 import BlocklistPanel from "@/components/BlocklistPanel";
@@ -14,14 +15,15 @@ type Tab = "logs" | "blocklist" | "preapprovals";
 
 export default function AdminPage() {
   const { user, role, loading } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab ] = useState<Tab>("logs");
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
 
   useEffect(() => {
     if (!loading && (!user || role !== "admin")) {
-      // router.push("/login");
+      router.push("/login");
     }
-  }, [user, role, loading]);
+  }, [user, role, loading, router]);
 
   const handleCheckout = async (id: string) => {
     const visitorRef = doc(db, "visitors", id);

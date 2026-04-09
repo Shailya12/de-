@@ -1,0 +1,40 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && 
+        request.auth.token.email in [
+          'shailya.gohil@gmail.com',
+          'admin@gatecheckin.app'
+        ];
+    }
+    
+    // Helper function to check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // Visitor photos - authenticated users can read, security can upload
+    match /visitors/{visitorId}/photos/{photoId} {
+      allow read: if isAuth();
+      allow write: if isAuth() 
+        && request.resource.size < 5 * 1024 * 1024  // 5MB limit
+        && request.resource.contentType.matches('image/.*');
+    }
+    
+    // ID photos - authenticated users can read, security can upload
+    match /visitors/{visitorId}/ids/{photoId} {
+      allow read: if isAuth();
+      allow write: if isAuth() 
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    
+    // Allow reading existing files
+    match /{allPaths=**} {
+      allow read: if isAuth();
+    }
+  }
+}

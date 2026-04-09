@@ -16,6 +16,10 @@ const DELIVERY_COMPANIES = [
   { id: "other", label: "📬 Other" },
 ];
 
+function sanitizeFlat(input: string): string {
+  return input.trim().slice(0, 20).toUpperCase();
+}
+
 export default function DeliveryCheckin({ onComplete }: { onComplete: () => void }) {
   const [company, setCompany] = useState("");
   const [flat, setFlat] = useState("");
@@ -43,7 +47,7 @@ export default function DeliveryCheckin({ onComplete }: { onComplete: () => void
         idPhotoUrl: "",
         purpose: "Delivery",
         hostName: "",
-        apartmentFloor: flat,
+        apartmentFloor: sanitizeFlat(flat),
         vehicleNumber: "",
         notes: `Quick delivery check-in`,
         checkInTime: Timestamp.now(),

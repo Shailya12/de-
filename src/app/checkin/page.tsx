@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { collection, query, orderBy, onSnapshot, updateDoc, doc, Timestamp, where, getDocs, limit } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +14,8 @@ import { format } from "date-fns";
 type CheckinMode = "standard" | "delivery" | "otp" | "none";
 
 export default function CheckinPage() {
-  const { user, loading } = useAuth();
+  const router = useRouter();
+  const { user, role, loading } = useAuth();
   const [allVisitors, setAllVisitors] = useState<Visitor[]>([]);
   const [mode, setMode] = useState<CheckinMode>("none");
   const [otpData, setOtpData] = useState<any>(null);
@@ -21,6 +23,12 @@ export default function CheckinPage() {
   // Vehicle Search
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [searchResult, setSearchResult] = useState<Visitor | null>(null);
+
+  useEffect(() => {
+    if (!loading && (!user || role === "admin")) {
+      router.push(role === "admin" ? "/admin" : "/login");
+    }
+  }, [user, role, loading, router]);
 
   useEffect(() => {
     if (!user) return;

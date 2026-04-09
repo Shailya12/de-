@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && 
+        request.auth.token.email in [
+          'shailya.gohil@gmail.com',
+          'admin@gatecheckin.app'
+        ];
+    }
+    
+    // Helper function to check if user is authenticated security guard
+    function isSecurity() {
+      return request.auth != null;
+    }
+    
+    // Visitor records - read by all, write by security
+    match /visitors/{visitorId} {
+      allow read: if isSecurity();
+      allow create: if isSecurity() 
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 10
+        && request.resource.data.photoUrl is string
+        && request.resource.data.photoUrl.size() > 0;
+      allow update: if isSecurity() 
+        && request.resource.data.diff(resource.data).affectedKeys().hasAll([
+          'status', 'checkOutTime'
+        ]);
+      allow delete: if isAdmin();
+    }
+    
+    // Blocklist - admin only
+    match /blocklist/{entryId} {
+      allow read: if isSecurity();
+      allow write: if isAdmin();
+    }
+    
+    // Pre-approvals - read by security, write by admin
+    match /preApprovals/{approvalId} {
+      allow read: if isSecurity();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
