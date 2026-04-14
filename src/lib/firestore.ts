@@ -4,11 +4,13 @@ import {
   addDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   doc,
   getDocs,
   query,
   orderBy,
   where,
+  limit,
   onSnapshot,
   Timestamp,
   type Unsubscribe,
@@ -99,10 +101,10 @@ export async function getVisitorsByPhone(phone: string): Promise<Visitor[]> {
   return snap.docs.map((d) => toVisitor(d.id, d.data()))
 }
 
-export async function getRecentVisitors(limit = 10): Promise<Visitor[]> {
-  const q = query(collection(db, 'visitors'), orderBy('checkInTime', 'desc'))
+export async function getRecentVisitors(n = 10): Promise<Visitor[]> {
+  const q = query(collection(db, 'visitors'), orderBy('checkInTime', 'desc'), limit(n))
   const snap = await getDocs(q)
-  return snap.docs.slice(0, limit).map((d) => toVisitor(d.id, d.data()))
+  return snap.docs.map((d) => toVisitor(d.id, d.data()))
 }
 
 // ── Blocklist ─────────────────────────────────────────────────────────────────
@@ -120,14 +122,24 @@ export async function addToBlocklist(data: {
 }
 
 export async function removeFromBlocklist(entryId: string): Promise<void> {
-  await updateDoc(doc(db, 'blocklist', entryId), { removed: true })
+  await deleteDoc(doc(db, 'blocklist', entryId))
 }
 
 export async function getBlocklist(): Promise<BlocklistEntry[]> {
   const snap = await getDocs(collection(db, 'blocklist'))
-  return snap.docs
-    .filter((d) => !d.data().removed)
-    .map((d) => ({
+  return snap.docs.map((d) => ({
+    id: d.id,
+    name: d.data().name as string,
+    phone: d.data().phone as string,
+    reason: d.data().reason as string,
+    addedBy: d.data().addedBy as string,
+    addedAt: (d.data().addedAt as Timestamp).toDate(),
+  }))
+}
+
+export function subscribeToBlocklist(callback: (entries: BlocklistEntry[]) => void): Unsubscribe {
+  return onSnapshot(collection(db, 'blocklist'), (snap) => {
+    const entries = snap.docs.map((d) => ({
       id: d.id,
       name: d.data().name as string,
       phone: d.data().phone as string,
@@ -135,20 +147,6 @@ export async function getBlocklist(): Promise<BlocklistEntry[]> {
       addedBy: d.data().addedBy as string,
       addedAt: (d.data().addedAt as Timestamp).toDate(),
     }))
-}
-
-export function subscribeToBlocklist(callback: (entries: BlocklistEntry[]) => void): Unsubscribe {
-  return onSnapshot(collection(db, 'blocklist'), (snap) => {
-    const entries = snap.docs
-      .filter((d) => !d.data().removed)
-      .map((d) => ({
-        id: d.id,
-        name: d.data().name as string,
-        phone: d.data().phone as string,
-        reason: d.data().reason as string,
-        addedBy: d.data().addedBy as string,
-        addedAt: (d.data().addedAt as Timestamp).toDate(),
-      }))
     callback(entries)
   })
 }

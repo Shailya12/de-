@@ -16,7 +16,6 @@ import type { Visitor, BlocklistEntry, VisitPurpose } from '@/types'
 
 type StatusFilter = 'all' | 'checked-in' | 'checked-out'
 type DateFilter = 'today' | 'yesterday' | 'all'
-type ActiveView = 'visitors' | 'blocklist'
 
 function exportCSV(visitors: Visitor[]) {
   const headers = ['Name', 'Phone', 'Purpose', 'Host', 'Apt/Floor', 'Vehicle', 'Check-in', 'Check-out', 'Status', 'Flagged', 'Notes', 'Registered By']
@@ -49,7 +48,6 @@ export default function AdminPage() {
   const [blocklist, setBlocklist] = useState<BlocklistEntry[]>([])
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null)
   const [visitCountMap, setVisitCountMap] = useState<Record<string, number>>({})
-  const [activeView, setActiveView] = useState<ActiveView>('visitors')
   const [showBlocklistModal, setShowBlocklistModal] = useState(false)
   const [blocklistPrefill, setBlocklistPrefill] = useState({ name: '', phone: '' })
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -173,9 +171,9 @@ export default function AdminPage() {
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1">
           <NavItem icon={<LayoutDashboard className="w-4 h-4" />} label="Visitors" count={stats.currentlyInside > 0 ? stats.currentlyInside : undefined}
-            active={activeView === 'visitors'} onClick={() => { setActiveView('visitors'); setSidebarOpen(false) }} />
+            active={!showBlocklistModal} onClick={() => setSidebarOpen(false)} />
           <NavItem icon={<Ban className="w-4 h-4" />} label="Blocklist" count={blocklist.length > 0 ? blocklist.length : undefined}
-            active={activeView === 'blocklist'} onClick={() => { setActiveView('blocklist'); setSidebarOpen(false); setShowBlocklistModal(true) }} />
+            active={showBlocklistModal} onClick={() => { setSidebarOpen(false); setShowBlocklistModal(true) }} />
         </nav>
 
         {/* Admin info + sign out */}
