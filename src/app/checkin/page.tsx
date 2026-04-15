@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import PhotoCapture from '@/components/PhotoCapture'
-import { subscribeToBlocklist, checkOutVisitor, getRecentVisitors, addVisitor, newVisitorId } from '@/lib/firestore'
+import { subscribeToBlocklist, checkOutVisitor, getRecentVisitors, addVisitor, newVisitorId, getRecentCheckInsByPhone } from '@/lib/firestore'
 import { uploadVisitorPhoto } from '@/lib/storage'
 import type { BlocklistEntry, Visitor, VisitPurpose } from '@/types'
 
@@ -53,6 +53,7 @@ export default function CheckinPage() {
   const [successName, setSuccessName] = useState('')
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
   const [time, setTime] = useState(new Date())
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login')
@@ -126,6 +127,17 @@ export default function CheckinPage() {
       setRecent((prev) => prev.map((v) => v.id === id ? { ...v, status: 'checked-out', checkOutTime: new Date() } : v))
     } finally {
       setCheckingOut(null)
+    }
+  }
+
+  async function handlePhoneBlur() {
+    if (phone.replace(/\D/g, '').length < 7) return
+    const dupes = await getRecentCheckInsByPhone(phone)
+    if (dupes.length > 0) {
+      const mins = Math.round((Date.now() - dupes[0].checkInTime.getTime()) / 60000)
+      setDuplicateWarning(`${dupes[0].name} checked in ${mins} minute${mins !== 1 ? 's' : ''} ago — already inside?`)
+    } else {
+      setDuplicateWarning(null)
     }
   }
 
@@ -220,12 +232,21 @@ export default function CheckinPage() {
                 <Phone className="w-3.5 h-3.5" style={{ color: 'var(--text-3)' }} /> Phone Number *
               </label>
               <input
-                required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                required type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setDuplicateWarning(null) }}
+                onBlur={handlePhoneBlur}
                 className="input-field" placeholder="+91 98765 43210"
                 autoComplete="off"
               />
             </div>
           </div>
+
+          {duplicateWarning && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-lg text-sm"
+              style={{ background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)', color: '#ca8a04' }}>
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{duplicateWarning}</span>
+            </div>
+          )}
 
           {/* Purpose */}
           <div className="card" style={{ padding: '1rem' }}>

@@ -107,6 +107,20 @@ export async function getRecentVisitors(n = 10): Promise<Visitor[]> {
   return snap.docs.map((d) => toVisitor(d.id, d.data()))
 }
 
+/** Returns visitors checked in within the last N minutes with this phone who are still inside */
+export async function getRecentCheckInsByPhone(phone: string, withinMinutes = 30): Promise<Visitor[]> {
+  const cutoff = Timestamp.fromDate(new Date(Date.now() - withinMinutes * 60 * 1000))
+  const q = query(
+    collection(db, 'visitors'),
+    where('phone', '==', phone),
+    where('status', '==', 'checked-in'),
+    where('checkInTime', '>=', cutoff),
+    orderBy('checkInTime', 'desc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => toVisitor(d.id, d.data()))
+}
+
 // ── Blocklist ─────────────────────────────────────────────────────────────────
 
 export async function addToBlocklist(data: {

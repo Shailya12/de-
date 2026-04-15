@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { format, isToday, isYesterday } from 'date-fns'
 import {
-  Shield, Search, Download, Users, UserCheck, UserX, AlertTriangle,
+  Shield, Search, Download, UserCheck, UserX, AlertTriangle,
   LogOut, Ban, LayoutDashboard, ChevronRight, SlidersHorizontal, X,
   Clock, TrendingUp, Filter,
 } from 'lucide-react'
@@ -40,11 +40,26 @@ const PURPOSE_EMOJI: Record<string, string> = {
   Delivery: '📦', Guest: '👤', Meeting: '🤝', Maintenance: '🔧', Other: '•',
 }
 
+function VisitorSkeleton() {
+  return (
+    <div className="animate-pulse flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+      <div className="w-10 h-10 rounded-full" style={{ background: 'var(--surface)' }} />
+      <div className="flex-1 space-y-2">
+        <div className="h-3 rounded w-1/3" style={{ background: 'var(--surface)' }} />
+        <div className="h-3 rounded w-1/4" style={{ background: 'var(--surface)' }} />
+      </div>
+      <div className="h-5 w-16 rounded-full" style={{ background: 'var(--surface)' }} />
+      <div className="h-5 w-14 rounded-full" style={{ background: 'var(--surface)' }} />
+    </div>
+  )
+}
+
 export default function AdminPage() {
   const { user, role, loading, signOut } = useAuth()
   const router = useRouter()
 
   const [visitors, setVisitors] = useState<Visitor[]>([])
+  const [visitorsLoading, setVisitorsLoading] = useState(true)
   const [blocklist, setBlocklist] = useState<BlocklistEntry[]>([])
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null)
   const [visitCountMap, setVisitCountMap] = useState<Record<string, number>>({})
@@ -65,7 +80,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!user || role !== 'admin') return
-    const unsub1 = subscribeToVisitors(setVisitors)
+    const unsub1 = subscribeToVisitors((all) => { setVisitors(all); setVisitorsLoading(false) })
     const unsub2 = subscribeToBlocklist(setBlocklist)
     return () => { unsub1(); unsub2() }
   }, [user, role])
@@ -296,10 +311,13 @@ export default function AdminPage() {
 
           {/* Visitor table */}
           <div className="card overflow-hidden">
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-3" style={{ color: 'var(--text-3)' }}>
-                <Users className="w-10 h-10 opacity-30" />
-                <p className="text-sm">No visitors match your filters</p>
+            {visitorsLoading ? (
+              <>
+                {[...Array(6)].map((_, i) => <VisitorSkeleton key={i} />)}
+              </>
+            ) : filtered.length === 0 ? (
+              <div className="py-16 text-center" style={{ color: 'var(--text-3)' }}>
+                <p className="text-sm">No visitors found</p>
               </div>
             ) : (
               <>
