@@ -408,13 +408,13 @@ npm install
 
 # Create .env.local with Firebase config
 cat > .env.local << 'EOF'
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDM5QQLvZ6vFcZkOdMUkO5r_b8gYYcufY0
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=gate-checkin-app.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=gate-checkin-app
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=gate-checkin-app.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=343817454473
-NEXT_PUBLIC_FIREBASE_APP_ID=1:343817454473:web:248891038ab89aa1581758
-NEXT_PUBLIC_ADMIN_EMAILS=shailyak12@gmail.com,kaushikklass@gmail.com
+NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+NEXT_PUBLIC_ADMIN_EMAILS=admin1@example.com,admin2@example.com
 EOF
 
 # Start dev server
