@@ -6,13 +6,15 @@ import { format, isToday, isYesterday } from 'date-fns'
 import {
   Shield, Search, Download, UserCheck, UserX, AlertTriangle,
   LogOut, Ban, LayoutDashboard, ChevronRight, SlidersHorizontal, X,
-  Clock, TrendingUp, Filter,
+  Clock, TrendingUp, Filter, BarChart2,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import VisitorDetailModal from '@/components/VisitorDetailModal'
 import BlocklistPanel from '@/components/BlocklistPanel'
+import AnalyticsPanel from '@/components/AnalyticsPanel'
 import { subscribeToVisitors, subscribeToBlocklist, checkOutVisitor, flagVisitor, getVisitorsByPhone } from '@/lib/firestore'
 import type { Visitor, BlocklistEntry, VisitPurpose } from '@/types'
+import * as XLSX from 'xlsx'
 
 type StatusFilter = 'all' | 'checked-in' | 'checked-out'
 type DateFilter = 'today' | 'yesterday' | 'all'
@@ -34,6 +36,27 @@ function exportCSV(visitors: Visitor[]) {
   a.download = `vigil-export-${format(new Date(), 'yyyy-MM-dd')}.csv`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+function exportExcel(visitors: Visitor[]) {
+  const rows = visitors.map((v) => ({
+    Name: v.name,
+    Phone: v.phone,
+    Purpose: v.purpose,
+    Host: v.hostName ?? '',
+    'Apt/Floor': v.apartmentFloor ?? '',
+    Vehicle: v.vehicleNumber ?? '',
+    'Check-in': format(v.checkInTime, 'dd/MM/yyyy HH:mm'),
+    'Check-out': v.checkOutTime ? format(v.checkOutTime, 'dd/MM/yyyy HH:mm') : '',
+    Status: v.status === 'checked-in' ? 'Inside' : 'Left',
+    Flagged: v.flagged ? 'Yes' : 'No',
+    Notes: v.notes ?? '',
+    'Registered By': v.checkedInByName,
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Visitors')
+  XLSX.writeFile(wb, `vigil-export-${format(new Date(), 'yyyy-MM-dd')}.xlsx`)
 }
 
 const PURPOSE_EMOJI: Record<string, string> = {
@@ -66,6 +89,7 @@ export default function AdminPage() {
   const [showBlocklistModal, setShowBlocklistModal] = useState(false)
   const [blocklistPrefill, setBlocklistPrefill] = useState({ name: '', phone: '' })
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeView, setActiveView] = useState<'visitors' | 'analytics'>('visitors')
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -186,9 +210,11 @@ export default function AdminPage() {
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1">
           <NavItem icon={<LayoutDashboard className="w-4 h-4" />} label="Visitors" count={stats.currentlyInside > 0 ? stats.currentlyInside : undefined}
-            active={!showBlocklistModal} onClick={() => setSidebarOpen(false)} />
+            active={!showBlocklistModal && activeView === 'visitors'} onClick={() => { setSidebarOpen(false); setActiveView('visitors'); setShowBlocklistModal(false) }} />
           <NavItem icon={<Ban className="w-4 h-4" />} label="Blocklist" count={blocklist.length > 0 ? blocklist.length : undefined}
-            active={showBlocklistModal} onClick={() => { setSidebarOpen(false); setShowBlocklistModal(true) }} />
+            active={showBlocklistModal} onClick={() => { setSidebarOpen(false); setShowBlocklistModal(true); setActiveView('visitors') }} />
+          <NavItem icon={<BarChart2 className="w-4 h-4" />} label="Analytics"
+            active={activeView === 'analytics'} onClick={() => { setSidebarOpen(false); setActiveView('analytics') }} />
         </nav>
 
         {/* Admin info + sign out */}
@@ -248,155 +274,172 @@ export default function AdminPage() {
                 {stats.currentlyInside} inside
               </div>
             )}
-            <button onClick={() => exportCSV(filtered)}
-              className="btn-secondary flex items-center gap-1.5 py-2 text-xs">
-              <Download className="w-3.5 h-3.5" /> Export
-            </button>
+            <div className="relative group">
+              <button className="btn-secondary flex items-center gap-1.5 py-2 text-xs">
+                <Download className="w-3.5 h-3.5" /> Export
+              </button>
+              <div className="absolute right-0 top-full mt-1 w-36 rounded-xl overflow-hidden shadow-lg z-10 hidden group-hover:block"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <button onClick={() => exportCSV(filtered)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left transition-colors hover:bg-white/5">
+                  <Download className="w-3.5 h-3.5" /> CSV
+                </button>
+                <button onClick={() => exportExcel(filtered)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left transition-colors hover:bg-white/5">
+                  <Download className="w-3.5 h-3.5" /> Excel
+                </button>
+              </div>
+            </div>
           </div>
         </header>
 
         {/* Page body */}
         <main className="flex-1 p-4 lg:p-6 space-y-5">
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Today's Visitors" value={stats.todayTotal} accent="#3B82F6" />
-            <StatCard icon={<UserCheck className="w-4 h-4" />} label="Currently Inside" value={stats.currentlyInside} accent="#22C55E" />
-            <StatCard icon={<UserX className="w-4 h-4" />} label="Checked Out" value={stats.checkedOutToday} accent="#6B7280" />
-            <StatCard icon={<AlertTriangle className="w-4 h-4" />} label="Flagged Visitors" value={stats.flagged} accent="#EF4444" />
-          </div>
-
-          {/* Filter bar */}
-          <div className="card p-4 space-y-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}>
-                <Filter className="w-3.5 h-3.5" /> Date
-              </span>
-              {(['today', 'yesterday', 'all'] as DateFilter[]).map((d) => (
-                <Chip key={d} label={d === 'all' ? 'All time' : d.charAt(0).toUpperCase() + d.slice(1)}
-                  active={dateFilter === d} onClick={() => setDateFilter(d)} />
-              ))}
-
-              <div className="w-px h-4 mx-1" style={{ background: 'var(--border)' }} />
-
-              <span className="text-xs font-semibold" style={{ color: 'var(--text-3)' }}>Status</span>
-              {(['all', 'checked-in', 'checked-out'] as StatusFilter[]).map((s) => (
-                <Chip key={s}
-                  label={s === 'all' ? 'Any' : s === 'checked-in' ? '● Inside' : '○ Left'}
-                  active={statusFilter === s} onClick={() => setStatusFilter(s)} />
-              ))}
-
-              <div className="w-px h-4 mx-1 hidden sm:block" style={{ background: 'var(--border)' }} />
-
-              <span className="text-xs font-semibold hidden sm:inline" style={{ color: 'var(--text-3)' }}>Purpose</span>
-              {(['all', 'Delivery', 'Guest', 'Meeting', 'Maintenance', 'Other'] as Array<VisitPurpose | 'all'>).map((p) => (
-                <Chip key={p} label={p === 'all' ? 'All' : `${PURPOSE_EMOJI[p] ?? ''} ${p}`}
-                  active={purposeFilter === p} onClick={() => setPurposeFilter(p)} />
-              ))}
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                {filtered.length} record{filtered.length !== 1 ? 's' : ''}
-              </p>
-              {(search || statusFilter !== 'all' || dateFilter !== 'today' || purposeFilter !== 'all') && (
-                <button
-                  onClick={() => { setSearch(''); setStatusFilter('all'); setDateFilter('today'); setPurposeFilter('all') }}
-                  className="text-xs px-2.5 py-1 rounded-lg transition-colors"
-                  style={{ color: '#F87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  Clear filters
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Visitor table */}
-          <div className="card overflow-hidden">
-            {visitorsLoading ? (
-              <>
-                {[...Array(6)].map((_, i) => <VisitorSkeleton key={i} />)}
-              </>
-            ) : filtered.length === 0 ? (
-              <div className="py-16 text-center" style={{ color: 'var(--text-3)' }}>
-                <p className="text-sm">No visitors found</p>
+          {activeView === 'analytics' ? (
+            <AnalyticsPanel visitors={visitors} />
+          ) : (
+            <>
+              {/* Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Today's Visitors" value={stats.todayTotal} accent="#3B82F6" />
+                <StatCard icon={<UserCheck className="w-4 h-4" />} label="Currently Inside" value={stats.currentlyInside} accent="#22C55E" />
+                <StatCard icon={<UserX className="w-4 h-4" />} label="Checked Out" value={stats.checkedOutToday} accent="#6B7280" />
+                <StatCard icon={<AlertTriangle className="w-4 h-4" />} label="Flagged Visitors" value={stats.flagged} accent="#EF4444" />
               </div>
-            ) : (
-              <>
-                {/* Table header — desktop */}
-                <div className="hidden md:grid grid-cols-[3fr_1.5fr_1.5fr_1.2fr_1fr] px-4 py-2.5 text-xs font-semibold uppercase tracking-wide"
-                  style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-3)', background: 'var(--surface)' }}>
-                  <span>Visitor</span>
-                  <span>Purpose</span>
-                  <span>Check-in</span>
-                  <span>Location</span>
-                  <span className="text-right">Status</span>
-                </div>
-                <div style={{ borderTop: '1px solid var(--border)' }}>
-                  {filtered.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => setSelectedVisitor(v)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors group"
-                      style={{ borderBottom: '1px solid var(--border)' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      {/* Avatar */}
-                      <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 relative"
-                        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-                        {v.photoUrl && v.photoUrl !== '__pending__' ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={v.photoUrl} alt={v.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center font-bold text-sm"
-                            style={{ color: 'var(--text-3)' }}>
-                            {v.name[0]?.toUpperCase()}
-                          </div>
-                        )}
-                        {v.flagged && (
-                          <div className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-red-500 border-2"
-                            style={{ borderColor: 'var(--bg)' }} />
-                        )}
-                      </div>
 
-                      {/* Name + phone */}
-                      <div className="flex-1 min-w-0 md:grid md:grid-cols-[3fr_1.5fr_1.5fr_1.2fr_1fr] md:items-center">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm truncate">{v.name}</p>
-                          <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>{v.phone}</p>
-                        </div>
-                        <div className="hidden md:block">
-                          <PurposeBadge purpose={v.purpose} />
-                        </div>
-                        <div className="hidden md:block">
-                          <p className="text-xs flex items-center gap-1" style={{ color: 'var(--text-2)' }}>
-                            <Clock className="w-3 h-3 flex-shrink-0" />
-                            {labelDate(v.checkInTime)}
-                          </p>
-                        </div>
-                        <div className="hidden md:block">
-                          <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>
-                            {v.apartmentFloor ?? v.hostName ?? '—'}
-                          </p>
-                        </div>
-                        <div className="hidden md:flex justify-end">
-                          <StatusBadge status={v.status} />
-                        </div>
-                      </div>
+              {/* Filter bar */}
+              <div className="card p-4 space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}>
+                    <Filter className="w-3.5 h-3.5" /> Date
+                  </span>
+                  {(['today', 'yesterday', 'all'] as DateFilter[]).map((d) => (
+                    <Chip key={d} label={d === 'all' ? 'All time' : d.charAt(0).toUpperCase() + d.slice(1)}
+                      active={dateFilter === d} onClick={() => setDateFilter(d)} />
+                  ))}
 
-                      {/* Mobile right side */}
-                      <div className="md:hidden text-right flex-shrink-0">
-                        <p className="text-xs" style={{ color: 'var(--text-3)' }}>{labelDate(v.checkInTime)}</p>
-                        <StatusBadge status={v.status} />
-                      </div>
+                  <div className="w-px h-4 mx-1" style={{ background: 'var(--border)' }} />
 
-                      <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ color: 'var(--text-3)' }} />
-                    </button>
+                  <span className="text-xs font-semibold" style={{ color: 'var(--text-3)' }}>Status</span>
+                  {(['all', 'checked-in', 'checked-out'] as StatusFilter[]).map((s) => (
+                    <Chip key={s}
+                      label={s === 'all' ? 'Any' : s === 'checked-in' ? '● Inside' : '○ Left'}
+                      active={statusFilter === s} onClick={() => setStatusFilter(s)} />
+                  ))}
+
+                  <div className="w-px h-4 mx-1 hidden sm:block" style={{ background: 'var(--border)' }} />
+
+                  <span className="text-xs font-semibold hidden sm:inline" style={{ color: 'var(--text-3)' }}>Purpose</span>
+                  {(['all', 'Delivery', 'Guest', 'Meeting', 'Maintenance', 'Other'] as Array<VisitPurpose | 'all'>).map((p) => (
+                    <Chip key={p} label={p === 'all' ? 'All' : `${PURPOSE_EMOJI[p] ?? ''} ${p}`}
+                      active={purposeFilter === p} onClick={() => setPurposeFilter(p)} />
                   ))}
                 </div>
-              </>
-            )}
-          </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                    {filtered.length} record{filtered.length !== 1 ? 's' : ''}
+                  </p>
+                  {(search || statusFilter !== 'all' || dateFilter !== 'today' || purposeFilter !== 'all') && (
+                    <button
+                      onClick={() => { setSearch(''); setStatusFilter('all'); setDateFilter('today'); setPurposeFilter('all') }}
+                      className="text-xs px-2.5 py-1 rounded-lg transition-colors"
+                      style={{ color: '#F87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Visitor table */}
+              <div className="card overflow-hidden">
+                {visitorsLoading ? (
+                  <>
+                    {[...Array(6)].map((_, i) => <VisitorSkeleton key={i} />)}
+                  </>
+                ) : filtered.length === 0 ? (
+                  <div className="py-16 text-center" style={{ color: 'var(--text-3)' }}>
+                    <p className="text-sm">No visitors found</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Table header — desktop */}
+                    <div className="hidden md:grid grid-cols-[3fr_1.5fr_1.5fr_1.2fr_1fr] px-4 py-2.5 text-xs font-semibold uppercase tracking-wide"
+                      style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-3)', background: 'var(--surface)' }}>
+                      <span>Visitor</span>
+                      <span>Purpose</span>
+                      <span>Check-in</span>
+                      <span>Location</span>
+                      <span className="text-right">Status</span>
+                    </div>
+                    <div style={{ borderTop: '1px solid var(--border)' }}>
+                      {filtered.map((v) => (
+                        <button
+                          key={v.id}
+                          onClick={() => setSelectedVisitor(v)}
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors group"
+                          style={{ borderBottom: '1px solid var(--border)' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          {/* Avatar */}
+                          <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 relative"
+                            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                            {v.photoUrl && v.photoUrl !== '__pending__' ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={v.photoUrl} alt={v.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center font-bold text-sm"
+                                style={{ color: 'var(--text-3)' }}>
+                                {v.name[0]?.toUpperCase()}
+                              </div>
+                            )}
+                            {v.flagged && (
+                              <div className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-red-500 border-2"
+                                style={{ borderColor: 'var(--bg)' }} />
+                            )}
+                          </div>
+
+                          {/* Name + phone */}
+                          <div className="flex-1 min-w-0 md:grid md:grid-cols-[3fr_1.5fr_1.5fr_1.2fr_1fr] md:items-center">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm truncate">{v.name}</p>
+                              <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>{v.phone}</p>
+                            </div>
+                            <div className="hidden md:block">
+                              <PurposeBadge purpose={v.purpose} />
+                            </div>
+                            <div className="hidden md:block">
+                              <p className="text-xs flex items-center gap-1" style={{ color: 'var(--text-2)' }}>
+                                <Clock className="w-3 h-3 flex-shrink-0" />
+                                {labelDate(v.checkInTime)}
+                              </p>
+                            </div>
+                            <div className="hidden md:block">
+                              <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>
+                                {v.apartmentFloor ?? v.hostName ?? '—'}
+                              </p>
+                            </div>
+                            <div className="hidden md:flex justify-end">
+                              <StatusBadge status={v.status} />
+                            </div>
+                          </div>
+
+                          {/* Mobile right side */}
+                          <div className="md:hidden text-right flex-shrink-0">
+                            <p className="text-xs" style={{ color: 'var(--text-3)' }}>{labelDate(v.checkInTime)}</p>
+                            <StatusBadge status={v.status} />
+                          </div>
+
+                          <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ color: 'var(--text-3)' }} />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </main>
       </div>
 
