@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body className="min-h-full flex flex-col antialiased" style={{ background: 'var(--bg)' }}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </AuthProvider>
       </body>
     </html>
   );

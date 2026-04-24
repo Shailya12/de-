@@ -2,14 +2,19 @@
 import {
   collection,
   addDoc,
+  setDoc,
   updateDoc,
+  deleteDoc,
   doc,
   getDocs,
   query,
   orderBy,
   where,
+  limit,
+  startAfter,
   onSnapshot,
   Timestamp,
+  type DocumentSnapshot,
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -31,13 +36,18 @@ export interface NewVisitorData {
   checkedInByName: string
 }
 
-export async function addVisitor(data: NewVisitorData): Promise<string> {
-  const ref = await addDoc(collection(db, 'visitors'), {
-    ...data,
-    checkInTime: Timestamp.now(),
-    status: 'checked-in',
-    flagged: false,
-  })
+/** Generate a new visitor document ID without writing anything yet */
+export function newVisitorId(): string {
+  return doc(collection(db, 'visitors')).id
+}
+
+export async function addVisitor(data: NewVisitorData, id?: string): Promise<string> {
+  const payload = { ...data, checkInTime: Timestamp.now(), status: 'checked-in', flagged: false }
+  if (id) {
+    await setDoc(doc(db, 'visitors', id), payload)
+    return id
+  }
+  const ref = await addDoc(collection(db, 'visitors'), payload)
   return ref.id
 }
 
@@ -50,6 +60,12 @@ export async function checkOutVisitor(visitorId: string): Promise<void> {
 
 export async function flagVisitor(visitorId: string, flagged: boolean): Promise<void> {
   await updateDoc(doc(db, 'visitors', visitorId), { flagged })
+}
+
+export async function updateVisitorPhoto(visitorId: string, photoUrl: string, idPhotoUrl?: string): Promise<void> {
+  const updates: Record<string, string> = { photoUrl }
+  if (idPhotoUrl) updates.idPhotoUrl = idPhotoUrl
+  await updateDoc(doc(db, 'visitors', visitorId), updates)
 }
 
 function toVisitor(id: string, data: Record<string, unknown>): Visitor {
@@ -73,12 +89,34 @@ function toVisitor(id: string, data: Record<string, unknown>): Visitor {
   }
 }
 
-export function subscribeToVisitors(callback: (visitors: Visitor[]) => void): Unsubscribe {
-  const q = query(collection(db, 'visitors'), orderBy('checkInTime', 'desc'))
+export function subscribeToVisitors(
+  callback: (visitors: Visitor[]) => void,
+  maxRecords = 500
+): Unsubscribe {
+  const q = query(
+    collection(db, 'visitors'),
+    orderBy('checkInTime', 'desc'),
+    limit(maxRecords)
+  )
   return onSnapshot(q, (snap) => {
     const visitors = snap.docs.map((d) => toVisitor(d.id, d.data()))
     callback(visitors)
   })
+}
+
+export async function getVisitorPage(
+  after: DocumentSnapshot | null,
+  pageSize = 100
+): Promise<{ visitors: Visitor[]; lastDoc: DocumentSnapshot | null }> {
+  const constraints = after
+    ? [orderBy('checkInTime', 'desc'), startAfter(after), limit(pageSize)]
+    : [orderBy('checkInTime', 'desc'), limit(pageSize)]
+  const q = query(collection(db, 'visitors'), ...constraints)
+  const snap = await getDocs(q)
+  return {
+    visitors: snap.docs.map((d) => toVisitor(d.id, d.data())),
+    lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+  }
 }
 
 export async function getVisitorsByPhone(phone: string): Promise<Visitor[]> {
@@ -87,10 +125,24 @@ export async function getVisitorsByPhone(phone: string): Promise<Visitor[]> {
   return snap.docs.map((d) => toVisitor(d.id, d.data()))
 }
 
-export async function getRecentVisitors(limit = 10): Promise<Visitor[]> {
-  const q = query(collection(db, 'visitors'), orderBy('checkInTime', 'desc'))
+export async function getRecentVisitors(n = 10): Promise<Visitor[]> {
+  const q = query(collection(db, 'visitors'), orderBy('checkInTime', 'desc'), limit(n))
   const snap = await getDocs(q)
-  return snap.docs.slice(0, limit).map((d) => toVisitor(d.id, d.data()))
+  return snap.docs.map((d) => toVisitor(d.id, d.data()))
+}
+
+/** Returns visitors checked in within the last N minutes with this phone who are still inside */
+export async function getRecentCheckInsByPhone(phone: string, withinMinutes = 30): Promise<Visitor[]> {
+  const cutoff = Timestamp.fromDate(new Date(Date.now() - withinMinutes * 60 * 1000))
+  const q = query(
+    collection(db, 'visitors'),
+    where('phone', '==', phone),
+    where('status', '==', 'checked-in'),
+    where('checkInTime', '>=', cutoff),
+    orderBy('checkInTime', 'desc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => toVisitor(d.id, d.data()))
 }
 
 // ── Blocklist ─────────────────────────────────────────────────────────────────
@@ -108,14 +160,24 @@ export async function addToBlocklist(data: {
 }
 
 export async function removeFromBlocklist(entryId: string): Promise<void> {
-  await updateDoc(doc(db, 'blocklist', entryId), { removed: true })
+  await deleteDoc(doc(db, 'blocklist', entryId))
 }
 
 export async function getBlocklist(): Promise<BlocklistEntry[]> {
   const snap = await getDocs(collection(db, 'blocklist'))
-  return snap.docs
-    .filter((d) => !d.data().removed)
-    .map((d) => ({
+  return snap.docs.map((d) => ({
+    id: d.id,
+    name: d.data().name as string,
+    phone: d.data().phone as string,
+    reason: d.data().reason as string,
+    addedBy: d.data().addedBy as string,
+    addedAt: (d.data().addedAt as Timestamp).toDate(),
+  }))
+}
+
+export function subscribeToBlocklist(callback: (entries: BlocklistEntry[]) => void): Unsubscribe {
+  return onSnapshot(collection(db, 'blocklist'), (snap) => {
+    const entries = snap.docs.map((d) => ({
       id: d.id,
       name: d.data().name as string,
       phone: d.data().phone as string,
@@ -123,20 +185,6 @@ export async function getBlocklist(): Promise<BlocklistEntry[]> {
       addedBy: d.data().addedBy as string,
       addedAt: (d.data().addedAt as Timestamp).toDate(),
     }))
-}
-
-export function subscribeToBlocklist(callback: (entries: BlocklistEntry[]) => void): Unsubscribe {
-  return onSnapshot(collection(db, 'blocklist'), (snap) => {
-    const entries = snap.docs
-      .filter((d) => !d.data().removed)
-      .map((d) => ({
-        id: d.id,
-        name: d.data().name as string,
-        phone: d.data().phone as string,
-        reason: d.data().reason as string,
-        addedBy: d.data().addedBy as string,
-        addedAt: (d.data().addedAt as Timestamp).toDate(),
-      }))
     callback(entries)
   })
 }

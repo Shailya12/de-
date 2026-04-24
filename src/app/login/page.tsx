@@ -3,17 +3,22 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Shield, Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Shield, Eye, EyeOff, ArrowLeft, CheckCircle, Mail } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function LoginPage() {
-  const { signIn, user, role, loading } = useAuth()
+  const { signIn, resetPassword, user, role, loading } = useAuth()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showReset, setShowReset] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const [resetError, setResetError] = useState('')
+  const [resetSubmitting, setResetSubmitting] = useState(false)
 
   useEffect(() => {
     if (!loading && user) {
@@ -27,10 +32,42 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       await signIn(email, password)
-    } catch {
-      setError('Invalid email or password.')
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? ''
+      if (code === 'auth/invalid-api-key' || code === 'auth/api-key-not-valid') {
+        setError('App configuration error. Please contact support.')
+      } else if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        setError('Invalid email or password.')
+      } else if (code === 'auth/too-many-requests') {
+        setError('Too many attempts. Please wait a few minutes and try again.')
+      } else if (code === 'auth/network-request-failed') {
+        setError('Network error. Check your internet connection.')
+      } else {
+        setError(`Sign-in failed (${code || 'unknown error'}). Please try again.`)
+      }
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault()
+    setResetError('')
+    setResetSubmitting(true)
+    try {
+      await resetPassword(resetEmail)
+      setResetSent(true)
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? ''
+      if (code === 'auth/user-not-found' || code === 'auth/invalid-email') {
+        setResetError('No account found with that email address.')
+      } else if (code === 'auth/too-many-requests') {
+        setResetError('Too many attempts. Please wait a few minutes.')
+      } else {
+        setResetError('Failed to send reset email. Please try again.')
+      }
+    } finally {
+      setResetSubmitting(false)
     }
   }
 
@@ -104,6 +141,65 @@ export default function LoginPage() {
             <p className="text-sm" style={{ color: 'var(--text-2)' }}>Sign in to your Vigil account</p>
           </div>
 
+          {/* Forgot password panel */}
+          {showReset && (
+            <div className="mb-6">
+              {resetSent ? (
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
+                    style={{ background: 'rgba(74,222,128,0.12)' }}>
+                    <Mail className="w-5 h-5" style={{ color: '#4ADE80' }} />
+                  </div>
+                  <p className="font-semibold mb-1">Check your inbox</p>
+                  <p className="text-sm mb-4" style={{ color: 'var(--text-2)' }}>
+                    We sent a password reset link to <strong>{resetEmail}</strong>
+                  </p>
+                  <button type="button" onClick={() => { setShowReset(false); setResetSent(false); setResetEmail('') }}
+                    className="text-sm underline" style={{ color: 'var(--text-3)' }}>
+                    Back to sign in
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleReset} className="space-y-4">
+                  <div>
+                    <button type="button" onClick={() => { setShowReset(false); setResetError('') }}
+                      className="flex items-center gap-1 text-sm mb-4" style={{ color: 'var(--text-3)' }}>
+                      <ArrowLeft className="w-3 h-3" /> Back to sign in
+                    </button>
+                    <h2 className="font-semibold text-lg mb-1">Reset your password</h2>
+                    <p className="text-sm mb-4" style={{ color: 'var(--text-2)' }}>
+                      Enter your email and we'll send you a reset link.
+                    </p>
+                    {resetError && (
+                      <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm mb-3"
+                        style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#F87171' }}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                        {resetError}
+                      </div>
+                    )}
+                    <label className="block text-sm font-medium mb-1.5">Email address</label>
+                    <input
+                      type="email" required value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      autoComplete="email"
+                      className="input-field"
+                      placeholder="you@example.com"
+                    />
+                  </div>
+                  <button type="submit" disabled={resetSubmitting} className="btn-primary w-full justify-center py-3">
+                    {resetSubmitting ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Sending…
+                      </>
+                    ) : 'Send reset link'}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {!showReset && (
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
@@ -127,6 +223,10 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium">Password</label>
+                <button type="button" onClick={() => { setShowReset(true); setResetEmail(email); setResetError('') }}
+                  className="text-xs transition-colors hover:underline" style={{ color: '#60A5FA' }}>
+                  Forgot password?
+                </button>
               </div>
               <div className="relative">
                 <input
@@ -153,6 +253,7 @@ export default function LoginPage() {
               ) : 'Sign in to Vigil'}
             </button>
           </form>
+          )}
 
           <div className="mt-6 pt-5 border-t text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--text-3)' }}>
             <p>Admin access: <span style={{ color: 'var(--text-2)' }}>Use your designated admin email</span></p>
