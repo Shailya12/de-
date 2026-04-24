@@ -341,7 +341,7 @@ function Footer() {
           <span className="text-xs ml-2" style={{ color: 'var(--text-3)' }}>© {new Date().getFullYear()}</span>
         </div>
         <div className="flex items-center gap-5 text-sm" style={{ color: 'var(--text-3)' }}>
-          <a href="#" className="hover:text-white transition-colors">Privacy</a>
+          <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
           <a href="#" className="hover:text-white transition-colors">Terms</a>
           <Link href="/login" className="hover:text-white transition-colors">Sign in</Link>
         </div>

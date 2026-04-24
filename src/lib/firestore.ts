@@ -11,8 +11,10 @@ import {
   orderBy,
   where,
   limit,
+  startAfter,
   onSnapshot,
   Timestamp,
+  type DocumentSnapshot,
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -87,12 +89,34 @@ function toVisitor(id: string, data: Record<string, unknown>): Visitor {
   }
 }
 
-export function subscribeToVisitors(callback: (visitors: Visitor[]) => void): Unsubscribe {
-  const q = query(collection(db, 'visitors'), orderBy('checkInTime', 'desc'))
+export function subscribeToVisitors(
+  callback: (visitors: Visitor[]) => void,
+  maxRecords = 500
+): Unsubscribe {
+  const q = query(
+    collection(db, 'visitors'),
+    orderBy('checkInTime', 'desc'),
+    limit(maxRecords)
+  )
   return onSnapshot(q, (snap) => {
     const visitors = snap.docs.map((d) => toVisitor(d.id, d.data()))
     callback(visitors)
   })
+}
+
+export async function getVisitorPage(
+  after: DocumentSnapshot | null,
+  pageSize = 100
+): Promise<{ visitors: Visitor[]; lastDoc: DocumentSnapshot | null }> {
+  const constraints = after
+    ? [orderBy('checkInTime', 'desc'), startAfter(after), limit(pageSize)]
+    : [orderBy('checkInTime', 'desc'), limit(pageSize)]
+  const q = query(collection(db, 'visitors'), ...constraints)
+  const snap = await getDocs(q)
+  return {
+    visitors: snap.docs.map((d) => toVisitor(d.id, d.data())),
+    lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+  }
 }
 
 export async function getVisitorsByPhone(phone: string): Promise<Visitor[]> {

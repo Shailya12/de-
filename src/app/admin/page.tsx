@@ -104,7 +104,11 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!user || role !== 'admin') return
-    const unsub1 = subscribeToVisitors((all) => { setVisitors(all); setVisitorsLoading(false) })
+    // Limit to 500 most recent records to avoid loading all data at once
+    const unsub1 = subscribeToVisitors((all) => {
+      setVisitors(all)
+      setVisitorsLoading(false)
+    }, 500)
     const unsub2 = subscribeToBlocklist(setBlocklist)
     return () => { unsub1(); unsub2() }
   }, [user, role])

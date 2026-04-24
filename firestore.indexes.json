@@ -7,6 +7,15 @@
         { "fieldPath": "phone", "order": "ASCENDING" },
         { "fieldPath": "checkInTime", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "visitors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "phone", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "checkInTime", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
