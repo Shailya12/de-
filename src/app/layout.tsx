@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 // The entire app requires authentication and Firebase — skip static prerendering
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-gray-950">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider><ErrorBoundary>{children}</ErrorBoundary></AuthProvider>
       </body>
     </html>
   );

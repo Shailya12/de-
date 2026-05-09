@@ -24,6 +24,21 @@ export default function PhotoCapture({ label, onCapture, onClear, previewUrl }: 
         canvas.width = img.width
         canvas.height = img.height
         const ctx = canvas.getContext('2d')!
+
+        function drawRoundRect(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+          c.beginPath()
+          c.moveTo(x + r, y)
+          c.lineTo(x + w - r, y)
+          c.arcTo(x + w, y, x + w, y + r, r)
+          c.lineTo(x + w, y + h - r)
+          c.arcTo(x + w, y + h, x + w - r, y + h, r)
+          c.lineTo(x + r, y + h)
+          c.arcTo(x, y + h, x, y + h - r, r)
+          c.lineTo(x, y + r)
+          c.arcTo(x, y, x + r, y, r)
+          c.closePath()
+        }
+
         ctx.drawImage(img, 0, 0)
 
         // Timestamp overlay
@@ -37,7 +52,7 @@ export default function PhotoCapture({ label, onCapture, onClear, previewUrl }: 
         // Dark background pill
         ctx.fillStyle = 'rgba(0, 0, 0, 0.65)'
         ctx.beginPath()
-        ctx.roundRect(boxX, boxY, textWidth + padding * 2, fontSize + padding * 2, 6)
+        drawRoundRect(ctx, boxX, boxY, textWidth + padding * 2, fontSize + padding * 2, 6)
         ctx.fill()
         // White text
         ctx.fillStyle = '#ffffff'
@@ -54,6 +69,10 @@ export default function PhotoCapture({ label, onCapture, onClear, previewUrl }: 
           'image/jpeg',
           0.92
         )
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl)
+        setProcessing(false)
       }
       img.src = objectUrl
     },

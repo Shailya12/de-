@@ -1,11 +1,11 @@
 {
-  "name": "Gate Check-in",
-  "short_name": "Check-in",
-  "description": "Building visitor check-in and registration",
-  "start_url": "/",
+  "name": "Vigil — Visitor Management",
+  "short_name": "Vigil",
+  "description": "Professional visitor management for buildings, offices, and complexes",
+  "start_url": "/checkin",
   "display": "standalone",
-  "background_color": "#030712",
-  "theme_color": "#111827",
+  "background_color": "#09090B",
+  "theme_color": "#2563EB",
   "orientation": "portrait",
   "icons": [
     {

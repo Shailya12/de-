@@ -10,7 +10,10 @@ import {
   where,
   onSnapshot,
   Timestamp,
+  startAfter,
+  limit,
   type Unsubscribe,
+  type DocumentSnapshot,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import type { Visitor, BlocklistEntry, VisitPurpose } from '@/types'
@@ -73,8 +76,15 @@ function toVisitor(id: string, data: Record<string, unknown>): Visitor {
   }
 }
 
-export function subscribeToVisitors(callback: (visitors: Visitor[]) => void): Unsubscribe {
-  const q = query(collection(db, 'visitors'), orderBy('checkInTime', 'desc'))
+export function subscribeToVisitors(
+  callback: (visitors: Visitor[]) => void,
+  maxRecords = 500
+): Unsubscribe {
+  const q = query(
+    collection(db, 'visitors'),
+    orderBy('checkInTime', 'desc'),
+    limit(maxRecords)
+  )
   return onSnapshot(q, (snap) => {
     const visitors = snap.docs.map((d) => toVisitor(d.id, d.data()))
     callback(visitors)
@@ -87,10 +97,39 @@ export async function getVisitorsByPhone(phone: string): Promise<Visitor[]> {
   return snap.docs.map((d) => toVisitor(d.id, d.data()))
 }
 
-export async function getRecentVisitors(limit = 10): Promise<Visitor[]> {
+export async function getRecentVisitors(maxResults = 10): Promise<Visitor[]> {
   const q = query(collection(db, 'visitors'), orderBy('checkInTime', 'desc'))
   const snap = await getDocs(q)
-  return snap.docs.slice(0, limit).map((d) => toVisitor(d.id, d.data()))
+  return snap.docs.slice(0, maxResults).map((d) => toVisitor(d.id, d.data()))
+}
+
+/** Returns visitors checked in within the last N minutes with this phone who are still inside */
+export async function getRecentCheckInsByPhone(phone: string, withinMinutes = 30): Promise<Visitor[]> {
+  const cutoff = Timestamp.fromDate(new Date(Date.now() - withinMinutes * 60 * 1000))
+  const q = query(
+    collection(db, 'visitors'),
+    where('phone', '==', phone),
+    where('status', '==', 'checked-in'),
+    where('checkInTime', '>=', cutoff),
+    orderBy('checkInTime', 'desc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => toVisitor(d.id, d.data()))
+}
+
+export async function getVisitorPage(
+  after: DocumentSnapshot | null,
+  pageSize = 100
+): Promise<{ visitors: Visitor[]; lastDoc: DocumentSnapshot | null }> {
+  const constraints = after
+    ? [orderBy('checkInTime', 'desc'), startAfter(after), limit(pageSize)]
+    : [orderBy('checkInTime', 'desc'), limit(pageSize)]
+  const q = query(collection(db, 'visitors'), ...constraints)
+  const snap = await getDocs(q)
+  return {
+    visitors: snap.docs.map((d) => toVisitor(d.id, d.data())),
+    lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+  }
 }
 
 // ── Blocklist ─────────────────────────────────────────────────────────────────
