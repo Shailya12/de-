@@ -79,7 +79,6 @@ export default function AdminPage() {
   const [blocklist, setBlocklist] = useState<BlocklistEntry[]>([])
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null)
   const [visitCountMap, setVisitCountMap] = useState<Record<string, number>>({})
-  const [showBlocklist, setShowBlocklist] = useState(false)
   const [blocklistPrefill, setBlocklistPrefill] = useState<{ name: string; phone: string }>({ name: '', phone: '' })
 
   const [search, setSearch] = useState('')
@@ -87,8 +86,9 @@ export default function AdminPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('today')
   const [purposeFilter, setPurposeFilter] = useState<VisitPurpose | 'all'>('all')
   const [visitorsLoading, setVisitorsLoading] = useState(true)
-  const [activeView, setActiveView] = useState<'visitors' | 'analytics'>('visitors')
+  const [activeView, setActiveView] = useState<'visitors' | 'analytics' | 'blocklist'>('visitors')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   useEffect(() => {
     if (!loading && (!user || role !== 'admin')) {
@@ -153,7 +153,8 @@ export default function AdminPage() {
 
   function handleAddToBlocklist(visitor: Visitor) {
     setBlocklistPrefill({ name: visitor.name, phone: visitor.phone })
-    setShowBlocklist(true)
+    setActiveView('blocklist')
+    setSelectedVisitor(null)
   }
 
   function labelDate(d: Date): string {
@@ -203,15 +204,15 @@ export default function AdminPage() {
         <nav className="flex-1 p-3 space-y-1">
           <SideNavItem icon={<LayoutDashboard className="w-4 h-4" />} label="Visitors"
             count={stats.currentlyInside > 0 ? stats.currentlyInside : undefined}
-            active={activeView === 'visitors' && !showBlocklist}
-            onClick={() => { setSidebarOpen(false); setActiveView('visitors'); setShowBlocklist(false) }} />
+            active={activeView === 'visitors'}
+            onClick={() => { setSidebarOpen(false); setActiveView('visitors') }} />
           <SideNavItem icon={<BarChart2 className="w-4 h-4" />} label="Analytics"
             active={activeView === 'analytics'}
-            onClick={() => { setSidebarOpen(false); setActiveView('analytics'); setShowBlocklist(false) }} />
+            onClick={() => { setSidebarOpen(false); setActiveView('analytics') }} />
           <SideNavItem icon={<Ban className="w-4 h-4" />} label="Blocklist"
             count={blocklist.length > 0 ? blocklist.length : undefined}
-            active={showBlocklist}
-            onClick={() => { setSidebarOpen(false); setShowBlocklist(true); setActiveView('visitors') }} />
+            active={activeView === 'blocklist'}
+            onClick={() => { setSidebarOpen(false); setActiveView('blocklist') }} />
         </nav>
 
         {/* Admin info */}
@@ -256,20 +257,26 @@ export default function AdminPage() {
               </div>
             )}
             {/* Export dropdown */}
-            <div className="relative group">
-              <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors border border-gray-700">
+            <div className="relative">
+              <button onClick={() => setExportOpen((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors border border-gray-700">
                 <Download className="w-3.5 h-3.5" /> Export
               </button>
-              <div className="absolute right-0 top-full mt-1 w-32 rounded-xl overflow-hidden shadow-lg z-10 hidden group-hover:block bg-gray-900 border border-gray-700">
-                <button onClick={() => exportCSV(filtered)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left hover:bg-gray-800 text-gray-300">
-                  <Download className="w-3.5 h-3.5" /> CSV
-                </button>
-                <button onClick={() => exportExcel(filtered)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left hover:bg-gray-800 text-gray-300">
-                  <Download className="w-3.5 h-3.5" /> Excel
-                </button>
-              </div>
+              {exportOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-32 rounded-xl overflow-hidden shadow-lg z-20 bg-gray-900 border border-gray-700">
+                    <button onClick={() => { exportCSV(filtered); setExportOpen(false) }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left hover:bg-gray-800 text-gray-300">
+                      <Download className="w-3.5 h-3.5" /> CSV
+                    </button>
+                    <button onClick={() => { exportExcel(filtered); setExportOpen(false) }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left hover:bg-gray-800 text-gray-300">
+                      <Download className="w-3.5 h-3.5" /> Excel
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -278,6 +285,9 @@ export default function AdminPage() {
         <main className="flex-1 p-4 lg:p-6">
           {activeView === 'analytics' ? (
             <AnalyticsPanel visitors={visitors} />
+          ) : activeView === 'blocklist' ? (
+            <BlocklistPanel inline entries={blocklist}
+              prefillName={blocklistPrefill.name} prefillPhone={blocklistPrefill.phone} />
           ) : (
             <div className="space-y-5">
               {/* Stats */}
@@ -369,10 +379,6 @@ export default function AdminPage() {
         <VisitorDetailModal visitor={selectedVisitor} visitCount={visitCountMap[selectedVisitor.phone] ?? 1}
           onClose={() => setSelectedVisitor(null)} onCheckout={handleCheckout}
           onFlag={handleFlag} onAddToBlocklist={handleAddToBlocklist} />
-      )}
-      {showBlocklist && (
-        <BlocklistPanel entries={blocklist} prefillName={blocklistPrefill.name}
-          prefillPhone={blocklistPrefill.phone} onClose={() => setShowBlocklist(false)} />
       )}
     </div>
   )

@@ -44,6 +44,7 @@ export default function CheckinPage() {
   const [hostName, setHostName] = useState('')
   const [apartmentFloor, setApartmentFloor] = useState('')
   const [vehicleNumber, setVehicleNumber] = useState('')
+  const [notes, setNotes] = useState('')
   const [showExtra, setShowExtra] = useState(false)
 
   const [blocklist, setBlocklist] = useState<BlocklistEntry[]>([])
@@ -120,6 +121,7 @@ export default function CheckinPage() {
         hostName: hostName.trim() || undefined,
         apartmentFloor: apartmentFloor.trim() || undefined,
         vehicleNumber: vehicleNumber.trim() || undefined,
+        notes: notes.trim() || undefined,
         checkedInBy: user!.uid,
         checkedInByName: user!.email ?? 'Guard',
       })
@@ -128,7 +130,7 @@ export default function CheckinPage() {
       setPhotoBlob(null); setPhotoPreview(null)
       setIdPhotoBlob(null); setIdPhotoPreview(null)
       setName(''); setPhone(''); setPurpose('Guest')
-      setHostName(''); setApartmentFloor(''); setVehicleNumber('')
+      setHostName(''); setApartmentFloor(''); setVehicleNumber(''); setNotes('')
       setShowExtra(false); setDuplicateWarning(null)
       refreshRecent()
       setTimeout(() => setSuccessMsg(''), 3500)
@@ -293,6 +295,11 @@ export default function CheckinPage() {
                   </label>
                   <input type="text" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)}
                     className="input-field" placeholder="e.g. MH 01 AB 1234" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Notes</label>
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
+                    className="input-field resize-none" rows={2} placeholder="Any additional notes…" />
                 </div>
                 <div>
                   <PhotoCapture

@@ -10,10 +10,11 @@ interface BlocklistPanelProps {
   entries: BlocklistEntry[]
   prefillName?: string
   prefillPhone?: string
-  onClose: () => void
+  onClose?: () => void
+  inline?: boolean
 }
 
-export default function BlocklistPanel({ entries, prefillName = '', prefillPhone = '', onClose }: BlocklistPanelProps) {
+export default function BlocklistPanel({ entries, prefillName = '', prefillPhone = '', onClose, inline = false }: BlocklistPanelProps) {
   const { user } = useAuth()
   const [name, setName] = useState(prefillName)
   const [phone, setPhone] = useState(prefillPhone)
@@ -51,24 +52,22 @@ export default function BlocklistPanel({ entries, prefillName = '', prefillPhone
     }
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="bg-gray-900 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-5 py-4 flex items-center justify-between rounded-t-2xl z-10">
-          <h2 className="font-bold text-white">Blocklist</h2>
+  const inner = (
+    <div className={inline ? 'w-full' : 'bg-gray-900 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto'}>
+      {/* Header */}
+      <div className={`${inline ? '' : 'sticky top-0 bg-gray-900 border-b border-gray-800 rounded-t-2xl z-10'} px-5 py-4 flex items-center justify-between`}>
+        <h2 className="font-bold text-white">Blocklist</h2>
+        {!inline && onClose && (
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-        </div>
+        )}
+      </div>
 
-        <div className="p-5 space-y-5">
-          {/* Add form */}
+      <div className="p-5 space-y-5">
+        {/* Add form */}
           <form onSubmit={handleAdd} className="bg-gray-800 rounded-xl p-4 space-y-3">
             <h3 className="text-sm font-semibold text-gray-200">Add to Blocklist</h3>
             {error && <p className="text-red-400 text-xs">{error}</p>}
@@ -133,6 +132,16 @@ export default function BlocklistPanel({ entries, prefillName = '', prefillPhone
           </div>
         </div>
       </div>
+  )
+
+  if (inline) return inner
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
+    >
+      {inner}
     </div>
   )
 }
