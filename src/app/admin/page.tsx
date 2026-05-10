@@ -8,7 +8,7 @@ import VisitorDetailModal from '@/components/VisitorDetailModal'
 import BlocklistPanel from '@/components/BlocklistPanel'
 import { subscribeToVisitors, subscribeToBlocklist, checkOutVisitor, flagVisitor, getVisitorsByPhone } from '@/lib/firestore'
 import type { Visitor, BlocklistEntry, VisitPurpose } from '@/types'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { Search, Download, LogOut, Ban, LayoutDashboard, Shield, ChevronRight, SlidersHorizontal, X, TrendingUp, UserCheck, UserX, AlertTriangle, Clock, Filter, BarChart2 } from 'lucide-react'
 import AnalyticsPanel from '@/components/AnalyticsPanel'
 
@@ -41,21 +41,37 @@ function exportCSV(visitors: Visitor[]) {
   URL.revokeObjectURL(url)
 }
 
-function exportExcel(visitors: Visitor[]) {
-  const rows = visitors.map((v) => ({
-    Name: v.name, Phone: v.phone, Purpose: v.purpose,
-    Host: v.hostName ?? '', 'Apt/Floor': v.apartmentFloor ?? '',
-    Vehicle: v.vehicleNumber ?? '',
-    'Check-in': format(v.checkInTime, 'dd/MM/yyyy HH:mm'),
-    'Check-out': v.checkOutTime ? format(v.checkOutTime, 'dd/MM/yyyy HH:mm') : '',
-    Status: v.status === 'checked-in' ? 'Inside' : 'Left',
-    Flagged: v.flagged ? 'Yes' : 'No',
-    Notes: v.notes ?? '', 'Registered By': v.checkedInByName,
+async function exportExcel(visitors: Visitor[]) {
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('Visitors')
+  ws.columns = [
+    { header: 'Name', key: 'name', width: 22 },
+    { header: 'Phone', key: 'phone', width: 16 },
+    { header: 'Purpose', key: 'purpose', width: 13 },
+    { header: 'Host', key: 'host', width: 20 },
+    { header: 'Apt/Floor', key: 'apt', width: 12 },
+    { header: 'Vehicle', key: 'vehicle', width: 15 },
+    { header: 'Check-in', key: 'checkIn', width: 18 },
+    { header: 'Check-out', key: 'checkOut', width: 18 },
+    { header: 'Status', key: 'status', width: 10 },
+    { header: 'Flagged', key: 'flagged', width: 9 },
+    { header: 'Notes', key: 'notes', width: 28 },
+    { header: 'Registered By', key: 'by', width: 26 },
+  ]
+  visitors.forEach((v) => ws.addRow({
+    name: v.name, phone: v.phone, purpose: v.purpose,
+    host: v.hostName ?? '', apt: v.apartmentFloor ?? '', vehicle: v.vehicleNumber ?? '',
+    checkIn: format(v.checkInTime, 'dd/MM/yyyy HH:mm'),
+    checkOut: v.checkOutTime ? format(v.checkOutTime, 'dd/MM/yyyy HH:mm') : '',
+    status: v.status === 'checked-in' ? 'Inside' : 'Left',
+    flagged: v.flagged ? 'Yes' : 'No', notes: v.notes ?? '', by: v.checkedInByName,
   }))
-  const ws = XLSX.utils.json_to_sheet(rows)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Visitors')
-  XLSX.writeFile(wb, `vigil-export-${format(new Date(), 'yyyy-MM-dd')}.xlsx`)
+  const buffer = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `vigil-export-${format(new Date(), 'yyyy-MM-dd')}.xlsx`; a.click()
+  URL.revokeObjectURL(url)
 }
 
 function VisitorSkeleton() {
@@ -108,6 +124,13 @@ export default function AdminPage() {
     return () => { unsub1(); unsub2() }
   }, [user, role])
 
+  // Keep open modal in sync with real-time visitor updates
+  useEffect(() => {
+    if (!selectedVisitor) return
+    const updated = visitors.find((v) => v.id === selectedVisitor.id)
+    if (updated) setSelectedVisitor(updated)
+  }, [visitors]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch visit counts when a visitor is selected
   useEffect(() => {
     if (!selectedVisitor) return
@@ -138,7 +161,7 @@ export default function AdminPage() {
       todayTotal: todayAll.length,
       currentlyInside: visitors.filter((v) => v.status === 'checked-in').length,
       checkedOutToday: todayAll.filter((v) => v.status === 'checked-out').length,
-      flagged: visitors.filter((v) => v.flagged).length,
+      flagged: todayAll.filter((v) => v.flagged).length,
     }
   }, [visitors])
 

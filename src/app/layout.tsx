@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-gray-950">
-        <AuthProvider><ErrorBoundary>{children}</ErrorBoundary></AuthProvider>
+        <ErrorBoundary><AuthProvider><ErrorBoundary>{children}</ErrorBoundary></AuthProvider></ErrorBoundary>
       </body>
     </html>
   );

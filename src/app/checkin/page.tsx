@@ -79,15 +79,20 @@ export default function CheckinPage() {
     return () => clearInterval(t)
   }, [])
 
-  async function handlePhoneBlur() {
-    if (phone.replace(/\D/g, '').length < 7) return
-    const dupes = await getRecentCheckInsByPhone(phone)
-    if (dupes.length > 0) {
-      const mins = Math.round((Date.now() - dupes[0].checkInTime.getTime()) / 60000)
-      setDuplicateWarning(`${dupes[0].name} checked in ${mins} minute${mins !== 1 ? 's' : ''} ago — already inside?`)
-    } else {
-      setDuplicateWarning(null)
-    }
+  async function handlePhoneBlur(blurredPhone: string) {
+    if (blurredPhone.replace(/\D/g, '').length < 7) return
+    const dupes = await getRecentCheckInsByPhone(blurredPhone)
+    // Discard result if the phone field changed while the query was in-flight
+    setPhone((current) => {
+      if (current !== blurredPhone) return current
+      if (dupes.length > 0) {
+        const mins = Math.round((Date.now() - dupes[0].checkInTime.getTime()) / 60000)
+        setDuplicateWarning(`${dupes[0].name} checked in ${mins} minute${mins !== 1 ? 's' : ''} ago — already inside?`)
+      } else {
+        setDuplicateWarning(null)
+      }
+      return current
+    })
   }
 
   async function handleCheckout(visitorId: string) {
@@ -235,7 +240,7 @@ export default function CheckinPage() {
               <input
                 type="tel" required value={phone}
                 onChange={(e) => { setPhone(e.target.value); setDuplicateWarning(null) }}
-                onBlur={handlePhoneBlur}
+                onBlur={(e) => handlePhoneBlur(e.target.value)}
                 className="input-field" placeholder="+91 98765 43210"
               />
             </div>

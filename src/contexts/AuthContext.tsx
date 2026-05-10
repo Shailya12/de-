@@ -8,15 +8,19 @@ import {
   onAuthStateChanged,
   type User,
 } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
+import { doc, getDoc } from 'firebase/firestore'
+import { auth, db } from '@/lib/firebase'
 import type { UserRole } from '@/types'
 
-function getAdminEmails(): string[] {
-  const raw = process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? ''
-  return raw
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean)
+async function checkIsAdmin(email: string): Promise<boolean> {
+  try {
+    const snap = await getDoc(doc(db, 'config', 'admins'))
+    if (!snap.exists()) return false
+    const emails = (snap.data().emails as string[]) ?? []
+    return emails.map((e) => e.toLowerCase()).includes(email.toLowerCase())
+  } catch {
+    return false
+  }
 }
 
 interface AuthContextValue {
@@ -36,13 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser)
       if (firebaseUser) {
-        const adminEmails = getAdminEmails()
-        const userRole = adminEmails.includes(firebaseUser.email?.toLowerCase() ?? '') ? 'admin' : 'security'
+        const isAdmin = await checkIsAdmin(firebaseUser.email ?? '')
+        const userRole: UserRole = isAdmin ? 'admin' : 'security'
         setRole(userRole)
-        // Set cookie for middleware route protection (Edge can't run Firebase SDK)
         document.cookie = `checkin_auth=${userRole}; path=/; SameSite=Strict`
       } else {
         setRole(null)

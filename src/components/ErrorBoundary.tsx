@@ -1,15 +1,23 @@
 'use client'
 import { Component, type ReactNode } from 'react'
-import { Shield, RefreshCw } from 'lucide-react'
+import { Shield, RefreshCw, RotateCcw } from 'lucide-react'
 
 interface Props { children: ReactNode }
-interface State { hasError: boolean; message: string }
+interface State { hasError: boolean; message: string; retryCount: number }
 
 export default class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, message: '' }
+  state: State = { hasError: false, message: '', retryCount: 0 }
 
-  static getDerivedStateFromError(err: Error): State {
+  static getDerivedStateFromError(err: Error): Partial<State> {
     return { hasError: true, message: err.message ?? 'Unknown error' }
+  }
+
+  componentDidCatch(err: Error, info: React.ErrorInfo) {
+    console.error('[ErrorBoundary] Uncaught error:', err, info.componentStack)
+  }
+
+  retry() {
+    this.setState((s) => ({ hasError: false, message: '', retryCount: s.retryCount + 1 }))
   }
 
   render() {
@@ -27,11 +35,18 @@ export default class ErrorBoundary extends Component<Props, State> {
           style={{ background: 'var(--surface)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
           {this.state.message}
         </p>
-        <button onClick={() => window.location.reload()}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white"
-          style={{ background: 'linear-gradient(135deg,#2563EB,#7C3AED)' }}>
-          <RefreshCw className="w-4 h-4" /> Reload app
-        </button>
+        <div className="flex gap-3">
+          <button onClick={() => this.retry()}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <RotateCcw className="w-4 h-4" /> Try again
+          </button>
+          <button onClick={() => window.location.reload()}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white"
+            style={{ background: 'linear-gradient(135deg,#2563EB,#7C3AED)' }}>
+            <RefreshCw className="w-4 h-4" /> Reload app
+          </button>
+        </div>
       </div>
     )
   }
