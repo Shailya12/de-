@@ -160,18 +160,6 @@ export async function removeFromBlocklist(entryId: string): Promise<void> {
   await deleteDoc(doc(db, 'blocklist', entryId))
 }
 
-export async function getBlocklist(): Promise<BlocklistEntry[]> {
-  const snap = await getDocs(collection(db, 'blocklist'))
-  return snap.docs.map((d) => ({
-    id: d.id,
-    name: d.data().name as string,
-    phone: d.data().phone as string,
-    reason: d.data().reason as string,
-    addedBy: d.data().addedBy as string,
-    addedAt: (d.data().addedAt as Timestamp).toDate(),
-  }))
-}
-
 function toBlocklistEntry(d: { id: string; data(): Record<string, unknown> }): BlocklistEntry {
   const raw = d.data()
   return {
