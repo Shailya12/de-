@@ -97,6 +97,8 @@ export default function CheckinPage() {
       setRecent((prev) =>
         prev.map((v) => v.id === visitorId ? { ...v, status: 'checked-out' as const, checkOutTime: new Date() } : v)
       )
+    } catch {
+      setError('Check-out failed. Please try again.')
     } finally {
       setCheckingOut(null)
     }
@@ -124,7 +126,7 @@ export default function CheckinPage() {
         notes: notes.trim() || undefined,
         checkedInBy: user!.uid,
         checkedInByName: user!.email ?? 'Guard',
-      })
+      }, visitorId)
 
       setSuccessMsg(`${name.trim()} checked in successfully!`)
       setPhotoBlob(null); setPhotoPreview(null)
@@ -143,7 +145,7 @@ export default function CheckinPage() {
   }
 
   const blocklistMatch = matchesBlocklist(blocklist, name, phone)
-  const canSubmit = !!photoBlob && !!name.trim() && !!phone.trim() && !submitting
+  const canSubmit = !!photoBlob && !!name.trim() && !!phone.trim() && !submitting && !blocklistMatch
 
   if (loading || !user) {
     return (

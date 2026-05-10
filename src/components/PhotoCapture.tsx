@@ -10,19 +10,31 @@ interface PhotoCaptureProps {
   previewUrl: string | null
 }
 
+const MAX_DIMENSION = 1600
+
 export default function PhotoCapture({ label, onCapture, onClear, previewUrl }: PhotoCaptureProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [processing, setProcessing] = useState(false)
+  const [captureError, setCaptureError] = useState('')
 
   const handleFile = useCallback(
     (file: File) => {
       setProcessing(true)
+      setCaptureError('')
       const img = new Image()
       const objectUrl = URL.createObjectURL(file)
       img.onload = () => {
+        // Scale down if either dimension exceeds MAX_DIMENSION
+        let { width, height } = img
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height)
+          width = Math.round(width * ratio)
+          height = Math.round(height * ratio)
+        }
+
         const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
+        canvas.width = width
+        canvas.height = height
         const ctx = canvas.getContext('2d')!
 
         function drawRoundRect(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -39,16 +51,16 @@ export default function PhotoCapture({ label, onCapture, onClear, previewUrl }: 
           c.closePath()
         }
 
-        ctx.drawImage(img, 0, 0)
+        ctx.drawImage(img, 0, 0, width, height)
 
         // Timestamp overlay
         const timestamp = format(new Date(), 'dd MMM yyyy  HH:mm:ss')
-        const fontSize = Math.max(16, Math.round(img.width * 0.03))
+        const fontSize = Math.max(14, Math.round(width * 0.03))
         ctx.font = `bold ${fontSize}px monospace`
         const padding = fontSize * 0.5
         const textWidth = ctx.measureText(timestamp).width
-        const boxX = img.width - textWidth - padding * 2 - 12
-        const boxY = img.height - fontSize - padding * 2 - 12
+        const boxX = width - textWidth - padding * 2 - 12
+        const boxY = height - fontSize - padding * 2 - 12
         // Dark background pill
         ctx.fillStyle = 'rgba(0, 0, 0, 0.65)'
         ctx.beginPath()
@@ -73,6 +85,7 @@ export default function PhotoCapture({ label, onCapture, onClear, previewUrl }: 
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl)
         setProcessing(false)
+        setCaptureError('Could not read this image. Please try another photo.')
       }
       img.src = objectUrl
     },
@@ -89,6 +102,9 @@ export default function PhotoCapture({ label, onCapture, onClear, previewUrl }: 
   return (
     <div>
       <p className="text-sm font-medium text-gray-300 mb-2">{label}</p>
+      {captureError && (
+        <p className="text-xs text-red-400 mb-2">{captureError}</p>
+      )}
 
       {previewUrl ? (
         <div className="relative rounded-xl overflow-hidden bg-gray-800">

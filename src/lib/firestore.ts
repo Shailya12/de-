@@ -1,6 +1,7 @@
 'use client'
 import {
   collection,
+  setDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -35,8 +36,9 @@ export interface NewVisitorData {
   checkedInByName: string
 }
 
-export async function addVisitor(data: NewVisitorData): Promise<string> {
-  const ref = await addDoc(collection(db, 'visitors'), {
+export async function addVisitor(data: NewVisitorData, id?: string): Promise<string> {
+  const ref = id ? doc(db, 'visitors', id) : doc(collection(db, 'visitors'))
+  await setDoc(ref, {
     ...data,
     checkInTime: Timestamp.now(),
     status: 'checked-in',
@@ -56,29 +58,32 @@ export async function flagVisitor(visitorId: string, flagged: boolean): Promise<
   await updateDoc(doc(db, 'visitors', visitorId), { flagged })
 }
 
-function toVisitor(id: string, data: Record<string, unknown>): Visitor {
+function toVisitor(id: string, data: Record<string, unknown>): Visitor | null {
+  const checkInTime = data.checkInTime as Timestamp | undefined
+  if (!checkInTime?.toDate) return null
   return {
     id,
-    name: data.name as string,
-    phone: data.phone as string,
-    photoUrl: data.photoUrl as string,
+    name: (data.name as string) ?? '',
+    phone: (data.phone as string) ?? '',
+    photoUrl: (data.photoUrl as string) ?? '',
     idPhotoUrl: data.idPhotoUrl as string | undefined,
-    purpose: data.purpose as VisitPurpose,
+    purpose: (data.purpose as VisitPurpose) ?? 'Other',
     hostName: data.hostName as string | undefined,
     apartmentFloor: data.apartmentFloor as string | undefined,
     vehicleNumber: data.vehicleNumber as string | undefined,
     notes: data.notes as string | undefined,
-    checkInTime: (data.checkInTime as Timestamp).toDate(),
+    checkInTime: checkInTime.toDate(),
     checkOutTime: data.checkOutTime ? (data.checkOutTime as Timestamp).toDate() : undefined,
-    status: data.status as 'checked-in' | 'checked-out',
-    checkedInBy: data.checkedInBy as string,
-    checkedInByName: data.checkedInByName as string,
-    flagged: data.flagged as boolean,
+    status: (data.status as 'checked-in' | 'checked-out') ?? 'checked-in',
+    checkedInBy: (data.checkedInBy as string) ?? '',
+    checkedInByName: (data.checkedInByName as string) ?? 'Unknown',
+    flagged: (data.flagged as boolean) ?? false,
   }
 }
 
 export function subscribeToVisitors(
   callback: (visitors: Visitor[]) => void,
+  onError?: (err: Error) => void,
   maxRecords = 500
 ): Unsubscribe {
   const q = query(
@@ -86,22 +91,26 @@ export function subscribeToVisitors(
     orderBy('checkInTime', 'desc'),
     limit(maxRecords)
   )
-  return onSnapshot(q, (snap) => {
-    const visitors = snap.docs.map((d) => toVisitor(d.id, d.data()))
-    callback(visitors)
-  })
+  return onSnapshot(
+    q,
+    (snap) => {
+      const visitors = snap.docs.map((d) => toVisitor(d.id, d.data())).filter((v): v is Visitor => v !== null)
+      callback(visitors)
+    },
+    onError ?? ((err) => console.error('subscribeToVisitors error:', err))
+  )
 }
 
 export async function getVisitorsByPhone(phone: string): Promise<Visitor[]> {
-  const q = query(collection(db, 'visitors'), where('phone', '==', phone), orderBy('checkInTime', 'desc'))
+  const q = query(collection(db, 'visitors'), where('phone', '==', phone), orderBy('checkInTime', 'desc'), limit(100))
   const snap = await getDocs(q)
-  return snap.docs.map((d) => toVisitor(d.id, d.data()))
+  return snap.docs.map((d) => toVisitor(d.id, d.data())).filter((v): v is Visitor => v !== null)
 }
 
 export async function getRecentVisitors(maxResults = 10): Promise<Visitor[]> {
   const q = query(collection(db, 'visitors'), orderBy('checkInTime', 'desc'), limit(maxResults))
   const snap = await getDocs(q)
-  return snap.docs.map((d) => toVisitor(d.id, d.data()))
+  return snap.docs.map((d) => toVisitor(d.id, d.data())).filter((v): v is Visitor => v !== null)
 }
 
 /** Returns visitors checked in within the last N minutes with this phone who are still inside */
@@ -115,7 +124,7 @@ export async function getRecentCheckInsByPhone(phone: string, withinMinutes = 30
     orderBy('checkInTime', 'desc')
   )
   const snap = await getDocs(q)
-  return snap.docs.map((d) => toVisitor(d.id, d.data()))
+  return snap.docs.map((d) => toVisitor(d.id, d.data())).filter((v): v is Visitor => v !== null)
 }
 
 export async function getVisitorPage(
@@ -128,7 +137,7 @@ export async function getVisitorPage(
   const q = query(collection(db, 'visitors'), ...constraints)
   const snap = await getDocs(q)
   return {
-    visitors: snap.docs.map((d) => toVisitor(d.id, d.data())),
+    visitors: snap.docs.map((d) => toVisitor(d.id, d.data())).filter((v): v is Visitor => v !== null),
     lastDoc: snap.docs[snap.docs.length - 1] ?? null,
   }
 }
@@ -163,15 +172,25 @@ export async function getBlocklist(): Promise<BlocklistEntry[]> {
   }))
 }
 
-export function subscribeToBlocklist(callback: (entries: BlocklistEntry[]) => void): Unsubscribe {
-  return onSnapshot(collection(db, 'blocklist'), (snap) => {
-    callback(snap.docs.map((d) => ({
-      id: d.id,
-      name: d.data().name as string,
-      phone: d.data().phone as string,
-      reason: d.data().reason as string,
-      addedBy: d.data().addedBy as string,
-      addedAt: (d.data().addedAt as Timestamp).toDate(),
-    })))
-  })
+function toBlocklistEntry(d: { id: string; data(): Record<string, unknown> }): BlocklistEntry {
+  const raw = d.data()
+  return {
+    id: d.id,
+    name: (raw.name as string) ?? '',
+    phone: (raw.phone as string) ?? '',
+    reason: (raw.reason as string) ?? '',
+    addedBy: (raw.addedBy as string) ?? '',
+    addedAt: raw.addedAt ? (raw.addedAt as Timestamp).toDate() : new Date(),
+  }
+}
+
+export function subscribeToBlocklist(
+  callback: (entries: BlocklistEntry[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'blocklist'),
+    (snap) => callback(snap.docs.map(toBlocklistEntry)),
+    onError ?? ((err) => console.error('subscribeToBlocklist error:', err))
+  )
 }

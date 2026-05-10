@@ -89,6 +89,7 @@ export default function AdminPage() {
   const [activeView, setActiveView] = useState<'visitors' | 'analytics' | 'blocklist'>('visitors')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     if (!loading && (!user || role !== 'admin')) {
@@ -98,7 +99,11 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!user || role !== 'admin') return
-    const unsub1 = subscribeToVisitors((all) => { setVisitors(all); setVisitorsLoading(false) }, 500)
+    const unsub1 = subscribeToVisitors(
+      (all) => { setVisitors(all); setVisitorsLoading(false) },
+      (err) => { console.error('Visitor feed error:', err); setActionError('Live feed disconnected. Refresh to reconnect.') },
+      500
+    )
     const unsub2 = subscribeToBlocklist(setBlocklist)
     return () => { unsub1(); unsub2() }
   }, [user, role])
@@ -138,16 +143,24 @@ export default function AdminPage() {
   }, [visitors])
 
   async function handleCheckout(id: string) {
-    await checkOutVisitor(id)
-    if (selectedVisitor?.id === id) {
-      setSelectedVisitor((v) => v ? { ...v, status: 'checked-out', checkOutTime: new Date() } : v)
+    try {
+      await checkOutVisitor(id)
+      if (selectedVisitor?.id === id) {
+        setSelectedVisitor((v) => v ? { ...v, status: 'checked-out', checkOutTime: new Date() } : v)
+      }
+    } catch {
+      setActionError('Check-out failed. Please try again.')
     }
   }
 
   async function handleFlag(id: string, flagged: boolean) {
-    await flagVisitor(id, flagged)
-    if (selectedVisitor?.id === id) {
-      setSelectedVisitor((v) => v ? { ...v, flagged } : v)
+    try {
+      await flagVisitor(id, flagged)
+      if (selectedVisitor?.id === id) {
+        setSelectedVisitor((v) => v ? { ...v, flagged } : v)
+      }
+    } catch {
+      setActionError('Action failed. Please try again.')
     }
   }
 
@@ -155,6 +168,12 @@ export default function AdminPage() {
     setBlocklistPrefill({ name: visitor.name, phone: visitor.phone })
     setActiveView('blocklist')
     setSelectedVisitor(null)
+  }
+
+  function navigateTo(view: 'visitors' | 'analytics' | 'blocklist') {
+    if (view !== 'blocklist') setBlocklistPrefill({ name: '', phone: '' })
+    setSidebarOpen(false)
+    setActiveView(view)
   }
 
   function labelDate(d: Date): string {
@@ -171,7 +190,7 @@ export default function AdminPage() {
     )
   }
 
-  const adminName = user.email?.split('@')[0] ?? 'Admin'
+  const adminName = user.email?.split('@')[0] || 'Admin'
 
   return (
     <div className="min-h-screen flex bg-gray-950 text-white">
@@ -205,14 +224,14 @@ export default function AdminPage() {
           <SideNavItem icon={<LayoutDashboard className="w-4 h-4" />} label="Visitors"
             count={stats.currentlyInside > 0 ? stats.currentlyInside : undefined}
             active={activeView === 'visitors'}
-            onClick={() => { setSidebarOpen(false); setActiveView('visitors') }} />
+            onClick={() => navigateTo('visitors')} />
           <SideNavItem icon={<BarChart2 className="w-4 h-4" />} label="Analytics"
             active={activeView === 'analytics'}
-            onClick={() => { setSidebarOpen(false); setActiveView('analytics') }} />
+            onClick={() => navigateTo('analytics')} />
           <SideNavItem icon={<Ban className="w-4 h-4" />} label="Blocklist"
             count={blocklist.length > 0 ? blocklist.length : undefined}
             active={activeView === 'blocklist'}
-            onClick={() => { setSidebarOpen(false); setActiveView('blocklist') }} />
+            onClick={() => navigateTo('blocklist')} />
         </nav>
 
         {/* Admin info */}
@@ -283,6 +302,13 @@ export default function AdminPage() {
 
         {/* Body */}
         <main className="flex-1 p-4 lg:p-6">
+          {actionError && (
+            <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl text-sm bg-red-950 border border-red-900 text-red-400">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              {actionError}
+              <button onClick={() => setActionError('')} className="ml-auto text-red-500 hover:text-red-300">✕</button>
+            </div>
+          )}
           {activeView === 'analytics' ? (
             <AnalyticsPanel visitors={visitors} />
           ) : activeView === 'blocklist' ? (

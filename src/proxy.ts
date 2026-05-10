@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 // The cookie is named `checkin_auth` and holds the user's role.
 // The AuthContext sets/clears this cookie on login/logout.
 
-const PUBLIC_PATHS = ['/login']
+const PUBLIC_PATHS = ['/login', '/privacy', '/terms', '/']
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl

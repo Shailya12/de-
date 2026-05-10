@@ -1,14 +1,29 @@
 'use client'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { BarChart2, Clock, Users } from 'lucide-react'
 import type { Visitor } from '@/types'
 
 interface Props { visitors: Visitor[] }
 
 export default function AnalyticsPanel({ visitors }: Props) {
+  // Re-derive day boundaries when the calendar date changes (e.g. across midnight)
+  const [today, setToday] = useState(() => new Date().toDateString())
+  useEffect(() => {
+    const msUntilMidnight = () => {
+      const now = new Date()
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime()
+    }
+    const tick = () => setToday(new Date().toDateString())
+    const id = setTimeout(function fire() {
+      tick()
+      setTimeout(fire, 24 * 60 * 60 * 1000)
+    }, msUntilMidnight())
+    return () => clearTimeout(id)
+  }, [])
+
   const { days, purposes, peakHours } = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date()
+      const d = new Date(today)
       d.setDate(d.getDate() - (6 - i))
       d.setHours(0, 0, 0, 0)
       const next = new Date(d); next.setDate(d.getDate() + 1)
@@ -33,7 +48,7 @@ export default function AnalyticsPanel({ visitors }: Props) {
     }))
 
     return { days: { data: days, max: dayMax }, purposes, peakHours }
-  }, [visitors])
+  }, [visitors, today])
 
   const PURPOSE_COLORS: Record<string, string> = {
     Guest: '#3B82F6', Delivery: '#F59E0B', Meeting: '#8B5CF6', Maintenance: '#10B981', Other: '#6B7280',

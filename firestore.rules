@@ -22,8 +22,10 @@ service cloud.firestore {
         && request.resource.data.checkedInBy == request.auth.uid;
       allow update: if request.auth != null && (
         isAdmin() ||
-        request.resource.data.diff(resource.data)
+        (request.resource.data.diff(resource.data)
           .affectedKeys().hasOnly(['status', 'checkOutTime'])
+          && request.resource.data.status == 'checked-out'
+          && resource.data.status == 'checked-in')
       );
       allow delete: if isAdmin();
     }

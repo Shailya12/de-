@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { addToBlocklist, removeFromBlocklist } from '@/lib/firestore'
 import type { BlocklistEntry } from '@/types'
@@ -22,6 +22,13 @@ export default function BlocklistPanel({ entries, prefillName = '', prefillPhone
   const [adding, setAdding] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    setName(prefillName)
+    setPhone(prefillPhone)
+    setReason('')
+    setError('')
+  }, [prefillName, prefillPhone])
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
